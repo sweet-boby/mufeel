@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+*.log
+.vite/
+
+# pnpm 在这台机器上把 store 建在仓库里（pnpm store path 指向 ./.pnpm-store），
+# 它是依赖缓存，不属于源码，永远不要提交。
+.pnpm-store/

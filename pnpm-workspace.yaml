@@ -1,0 +1,5 @@
+packages:
+  # 平台无关的领域核心。只依赖 TypeScript 标准库，不引用任何 DOM / Web Audio / React。
+  - packages/core
+  # Web 应用装配层：React 界面 + Tone.js 钢琴适配器 + localStorage 仓储。
+  - apps/web

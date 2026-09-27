@@ -1,0 +1,20 @@
+{
+  "name": "yuegan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @yuegan/web run dev",
+    "build": "pnpm --filter @yuegan/web run build",
+    "preview": "pnpm --filter @yuegan/web run preview",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
