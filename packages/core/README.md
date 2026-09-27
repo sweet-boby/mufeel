@@ -106,7 +106,7 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 
 ### Extension points
 
-加难度档改 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`（音域与跨度规则一起定义，界面按钮自动出现），`createDrillSpecForTier` 把档位与音数拼成规格，要一种新的跨度/音程约束才动 `PitchSpanPattern`；改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
+加难度档改 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`（音域、跨度规则与显示名一起定义，界面按钮自动出现），`createDrillSpecForTier` 把档位与音数拼成规格，要一种新的跨度/音程约束才动 `PitchSpanPattern`；改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
 
 新增一整种能力（绝对音高识别、参考音）没有现成端口可用：档位序列表达不了绝对音级，那要改 `Answer` 与判分口径。
 

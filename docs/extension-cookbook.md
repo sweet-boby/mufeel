@@ -8,7 +8,7 @@
 
 ## 加难度档或改出题分布
 
-难度档（`DifficultyTier`）是给人挑的入口：`DIFFICULTY_TIERS` 的每一项把音域与跨度规则捆在一起定义，`DIFFICULTY_TIER_ORDER` 决定首页按钮的顺序，`createDrillSpecForTier(tier, noteCount)` 再把档位与音数拼成 `DrillSpec`。加一档 = 扩展 `DifficultyTier` 联合类型、往 `DIFFICULTY_TIERS` 加一项、把它排进 `DIFFICULTY_TIER_ORDER`；按钮、提示与规格文案都读这张表，`apps/web/` 一行不改。音数、题数、重听上限仍是 `DrillSpec` 的独立字段，音数选项从 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成。
+难度档（`DifficultyTier`）是给人挑的入口：`DIFFICULTY_TIERS` 的每一项把音域、跨度规则与显示名（`label`）捆在一起定义，`DIFFICULTY_TIER_ORDER` 决定首页按钮的顺序，`createDrillSpecForTier(tier, noteCount)` 再把档位与音数拼成 `DrillSpec`。加一档 = 扩展 `DifficultyTier` 联合类型、往 `DIFFICULTY_TIERS` 加一项、把它排进 `DIFFICULTY_TIER_ORDER`；按钮、提示与规格文案都读这张表，`apps/web/` 一行不改。音数、题数、重听上限仍是 `DrillSpec` 的独立字段，音数选项从 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成。
 
 要一种新的跨度或音程约束（例如三度内、任意两音至少隔一个八度）才是改 core 的出题侧：`PitchSpanPattern` 加枚举值、给出这条规则的上界或下界（`maxSpanOf` 或同类纯函数），再让 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows`（合法起点）与 `sampleIndices`（取哪几个半音）按新规则工作。答案是升序名次，这类改动不碰 `Answer`。两条路都不碰作答表示与判分：不变量 ①②③④ 不受影响，⑤ 无关。
 
@@ -22,9 +22,9 @@ import {
 export const labels: readonly string[] = DIFFICULTY_TIER_ORDER.map((tier) => DIFFICULTY_TIERS[tier].label)
 // → ['中音区', '全音域', '八度内']
 
-/** 难度档 + 音数 → 规格：音域与跨度规则来自档位定义，其余字段仍可覆盖。 */
+/** 难度档 + 音数 → 规格：音域、跨度规则与显示名都来自档位定义，其余字段仍可覆盖。 */
 export const spec: DrillSpec = createDrillSpecForTier('wide', 4, { exerciseCount: 5, replayLimit: 1 })
-export const label = describeDrillSpec(spec) // "4 个音 · 全音域（C1–A7）"
+export const label = describeDrillSpec(spec) // "4 个音 · 全音域"
 ```
 
 ## 换判分口径（部分得分、更严的方向判定）
@@ -162,7 +162,7 @@ export const sameAnswer: boolean = low.join(',') === high.join(',')
 
 | 想加的东西 | 挂在哪 | 不变量 |
 | --- | --- | --- |
-| 新难度档（音域 + 跨度规则） | `DifficultyTier` 加字面量，再往 `DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER` 加一项（`packages/core/src/domain/entities/drill-spec.ts`），首页按钮自动出现 | 局部参数（①②③④ 不动） |
+| 新难度档（音域 + 跨度规则 + 显示名） | `DifficultyTier` 加字面量，再往 `DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER` 加一项（`packages/core/src/domain/entities/drill-spec.ts`），首页按钮自动出现 | 局部参数（①②③④ 不动） |
 | 新跨度规则、音程约束或出题分布（三度内、任意两音隔一个八度、限定音阶） | `PitchSpanPattern` 加枚举值并给出上界/下界（`maxSpanOf` 或同类纯函数），再改 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices` | 局部参数（①②③④ 不动；出题的性质测试要跟着改断言） |
 | 部分得分 / 更严的方向判定 | 新 `Judge` 实现，注入 `DrillRunnerDependencies.judge` | 新增实现（不动；`Judgment.isCorrect` 的含义变了） |
 | 音程判断（作答仍是档位） | 同上一行，另写 `Judge` | 新增实现（不动） |

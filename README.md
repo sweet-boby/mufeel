@@ -90,7 +90,7 @@ AGENTS.md                    面向 agent 的工作约定
 
 | 想做的事 | 改哪里 |
 | --- | --- |
-| 加难度档（音域 + 跨度规则一起定义） | `packages/core/src/domain/entities/drill-spec.ts` 的 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`，首页按钮自动出现；要新的跨度/音程约束才动 `packages/core/src/domain/services/exercise-generator.ts` |
+| 加难度档（音域 + 跨度规则 + 显示名） | `packages/core/src/domain/entities/drill-spec.ts` 的 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`，首页按钮自动出现；要新的跨度/音程约束才动 `packages/core/src/domain/services/exercise-generator.ts` |
 | 改判分口径（音程、音级、部分得分） | 另写一个 `Judge` 实现，替换 `packages/core/src/domain/services/judge.ts` 的注入 |
 | 换音色或换播放方式 | 实现 `packages/core/src/domain/ports/audio-player.ts` 的 `AudioPlayer` 端口（现有实现见 `apps/web/src/infrastructure/web-audio-piano-player.ts`） |
 | 换记录存储（账号、服务端） | 实现 `packages/core/src/domain/ports/drill-record-repository.ts` 的 `DrillRecordRepository` 端口 |

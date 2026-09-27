@@ -53,6 +53,6 @@ pnpm dev         # http://localhost:5173
 ## 别做的事
 
 - 不要在 `packages/core` 里为了图快 import 平台能力，也不要为"以后可能需要"预先抽象——扩展点已经有明确位置（端口 / 判分器 / 练习规格）。
-- 不要把难度控制塞进界面：音数、跨度、音域、题数、重听上限都属于 `DrillSpec`，加难度档就加规格参数。
+- 不要把难度控制塞进界面：一档难度的音域与跨度规则写在 core 的难度档表（`DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER`）里，界面只按表渲染；加一档只改 core。规矩见 [docs/cookbook/adding-a-difficulty-tier.md](docs/cookbook/adding-a-difficulty-tier.md)。
 - 不要在答题过程中显示音高或音名，也不要在滑块上标音名刻度：那会让用户用读刻度代替听。真实音高只在反馈阶段出现。
 - 不要提交 `apps/web/dist/`、`node_modules/` 或 `.pnpm-store/`。

@@ -38,7 +38,7 @@ pnpm preview  # 预览已构建的产物
 |---|---|
 | 页面结构、交互、样式 | `apps/web/src/presentation/` 与 `apps/web/src/styles/global.css` |
 | 播放方式、音色、记录存储 | `apps/web/src/infrastructure/` |
-| 音数与难度选项 | `apps/web/src/presentation/home-screen.tsx` 的选项表；音数、跨度、音域这些参数由 core 的 `DrillSpec` 定义 |
+| 音数与难度选项 | 音数由 core 的 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成；难度按钮按 core 的 `DIFFICULTY_TIER_ORDER` 渲染，文案与提示取自 `DIFFICULTY_TIERS`——加一档只改 core，这个包不动 |
 
 从 web 里 import core 一律走包入口 `@yuegan/core`，不要深入 `packages/core/src/` 下的某个文件：那条路径绕过公开导出，core 内部改名后不会报错，只会静默失效。`pnpm test:docs` 会拦住深层导入。
 
@@ -55,7 +55,7 @@ pnpm preview  # 预览已构建的产物
 |---|---|
 | [`src/main.tsx`](src/main.tsx) | 挂载 `App`；找不到 `#root` 就抛错，而不是静默白屏 |
 | [`src/presentation/app.tsx`](src/presentation/app.tsx) | 页面切换（首页 / 练习页 / 结果页）与会话生命周期；`phase === 'finished'` 且有 summary 时显示结果页 |
-| [`src/presentation/home-screen.tsx`](src/presentation/home-screen.tsx) | 选音数与难度。音数选项由 core 的 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成，难度按钮的文案取自 `SPAN_PATTERN_LABELS` |
+| [`src/presentation/home-screen.tsx`](src/presentation/home-screen.tsx) | 选音数与难度。音数选项由 core 的 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成，难度按钮与提示全部取自 core 的难度档表（`DIFFICULTY_TIER_ORDER` / `DIFFICULTY_TIERS`） |
 | [`src/presentation/drill-screen.tsx`](src/presentation/drill-screen.tsx) | 播放/重听、滑块、提交、反馈；每个滑块的档位选项、是否被占用、能否提交都来自 view state |
 | [`src/presentation/result-screen.tsx`](src/presentation/result-screen.tsx) | 正确率与逐题明细 |
 | [`src/presentation/use-drill.ts`](src/presentation/use-drill.ts) | React 与 `DrillRunner` 之间唯一的接缝（见下） |
@@ -74,7 +74,7 @@ pnpm preview  # 预览已构建的产物
 
 ### React 与 DrillRunner 的接缝
 
-[`use-drill.ts`](src/presentation/use-drill.ts) 订阅 runner：`subscribe()` 把每次状态变化推成 React state，用户操作翻译成 runner 命令（`start` / `play` / `proposeRank` / `selectRank` / `submit` / `next` / `reset`）。home-screen 选择只带 `noteCount` 与 `spanPattern`（`DrillSpecChoice`），由 `createSpecFromChoice` 变成 `DrillSpec`。`quit()` 必须连同 `reset()` 一起调用：只切页面不重置 runner，会留下一局「进行中」的残留状态，首页再换规格会被 domain 拒绝。`import.meta.env.DEV` 为真时才把 runner 挂到 `window.__yueganRunner`，供浏览器控制台与自动化读真实领域状态。
+[`use-drill.ts`](src/presentation/use-drill.ts) 订阅 runner：`subscribe()` 把每次状态变化推成 React state，用户操作翻译成 runner 命令（`start` / `play` / `proposeRank` / `selectRank` / `submit` / `next` / `reset`）。home-screen 的选择只带 `noteCount` 与 `tier`（`DrillSpecChoice`），由 `createSpecFromChoice` 走 `createDrillSpecForTier` 变成 `DrillSpec`（音域与跨度规则由难度档决定）。`quit()` 必须连同 `reset()` 一起调用：只切页面不重置 runner，会留下一局「进行中」的残留状态，首页再换规格会被 domain 拒绝。`import.meta.env.DEV` 为真时才把 runner 挂到 `window.__yueganRunner`，供浏览器控制台与自动化读真实领域状态。
 
 ### 采样与播放
 
