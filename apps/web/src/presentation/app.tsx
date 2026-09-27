@@ -18,7 +18,7 @@ import {
   type DrillSpecChoice,
 } from './use-drill';
 
-const DEFAULT_CHOICE: DrillSpecChoice = { noteCount: 3, spanPattern: 'unrestricted' };
+const DEFAULT_CHOICE: DrillSpecChoice = { noteCount: 3, tier: 'standard' };
 
 export function App(): JSX.Element {
   const [choice, setChoice] = useState<DrillSpecChoice>(DEFAULT_CHOICE);

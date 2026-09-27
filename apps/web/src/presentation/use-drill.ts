@@ -9,11 +9,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_AUDIO_CONFIG,
   DrillRunner,
-  createDrillSpec,
+  createDrillSpecForTier,
+  type DifficultyTier,
   type DrillRunnerEvent,
   type DrillSpec,
   type DrillViewState,
-  type PitchSpanPattern,
 } from '@yuegan/core';
 import { WebAudioPianoPlayer } from '../infrastructure/web-audio-piano-player';
 import { LocalStorageDrillRecordRepository } from '../infrastructure/local-storage-drill-record-repository';
@@ -37,14 +37,15 @@ export interface DrillControls {
   toast: string | null;
 }
 
-/** 首页选择的练习规格（音数 + 难度）。 */
+/** 首页选择的练习规格：几个音 + 哪一档难度。 */
 export interface DrillSpecChoice {
   noteCount: number;
-  spanPattern: PitchSpanPattern;
+  tier: DifficultyTier;
 }
 
+/** 界面只挑难度档与音数；音域与跨度规则由难度档的定义决定（都在 core 里）。 */
 export function createSpecFromChoice(choice: DrillSpecChoice): DrillSpec {
-  return createDrillSpec({ noteCount: choice.noteCount, spanPattern: choice.spanPattern });
+  return createDrillSpecForTier(choice.tier, choice.noteCount);
 }
 
 /**
@@ -55,9 +56,7 @@ export function useDrill(): DrillControls {
   const player = useMemo(() => new WebAudioPianoPlayer(), []);
   const repository = useMemo(() => new LocalStorageDrillRecordRepository(), []);
 
-  const [spec, setSpec] = useState<DrillSpec>(() =>
-    createDrillSpec({ noteCount: 3, spanPattern: 'unrestricted' }),
-  );
+  const [spec, setSpec] = useState<DrillSpec>(() => createDrillSpecForTier('standard', 3));
 
   const runner = useMemo(
     () =>

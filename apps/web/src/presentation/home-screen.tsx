@@ -5,10 +5,10 @@
 
 import {
   DEFAULT_EXERCISE_COUNT,
+  DIFFICULTY_TIERS,
+  DIFFICULTY_TIER_ORDER,
   MAX_NOTE_COUNT,
   MIN_NOTE_COUNT,
-  SPAN_PATTERN_LABELS,
-  type PitchSpanPattern,
 } from '@yuegan/core';
 import type { JSX } from 'react';
 import type { DrillSpecChoice } from './use-drill';
@@ -17,15 +17,6 @@ const NOTE_COUNT_OPTIONS = Array.from(
   { length: MAX_NOTE_COUNT - MIN_NOTE_COUNT + 1 },
   (_, index) => MIN_NOTE_COUNT + index,
 );
-
-/** 难度的出现顺序。按钮文案取自 core 的 SPAN_PATTERN_LABELS，提示语见 SPAN_HINTS。 */
-const SPAN_OPTIONS: readonly PitchSpanPattern[] = ['unrestricted', 'within-octave'];
-
-/** 选中某项难度时显示在按钮下方的说明。Record 保证每个难度都有一条，漏写就是类型错误。 */
-const SPAN_HINTS: Record<PitchSpanPattern, string> = {
-  unrestricted: '音可以散布在整个音域里，跨度不限',
-  'within-octave': '所有音挤在同一个八度里，更难分辨',
-};
 
 export interface HomeScreenProps {
   choice: DrillSpecChoice;
@@ -42,6 +33,8 @@ export function HomeScreen({
   recentCount,
   onStart,
 }: HomeScreenProps): JSX.Element {
+  const tier = DIFFICULTY_TIERS[choice.tier];
+
   return (
     <div className="screen home">
       <header className="hero">
@@ -73,26 +66,26 @@ export function HomeScreen({
         <div className="field">
           <span className="field-label">难度</span>
           <div className="segmented" role="radiogroup" aria-label="难度">
-            {SPAN_OPTIONS.map((pattern) => (
+            {DIFFICULTY_TIER_ORDER.map((value) => (
               <button
-                key={pattern}
+                key={value}
                 type="button"
                 role="radio"
-                aria-checked={choice.spanPattern === pattern}
-                className={choice.spanPattern === pattern ? 'seg is-active' : 'seg'}
-                onClick={() => onChange({ ...choice, spanPattern: pattern })}
+                aria-checked={choice.tier === value}
+                className={choice.tier === value ? 'seg is-active' : 'seg'}
+                onClick={() => onChange({ ...choice, tier: value })}
               >
-                {SPAN_PATTERN_LABELS[pattern]}
+                {DIFFICULTY_TIERS[value].label}
               </button>
             ))}
           </div>
-          <p className="field-hint">{SPAN_HINTS[choice.spanPattern]}</p>
+          <p className="field-hint">{tier.hint}</p>
         </div>
 
         <div className="spec-preview">
           本次练习：
           <strong>
-            {choice.noteCount} 个音 · {SPAN_PATTERN_LABELS[choice.spanPattern]}
+            {choice.noteCount} 个音 · {tier.label}
           </strong>
           ，共 {DEFAULT_EXERCISE_COUNT} 题
         </div>

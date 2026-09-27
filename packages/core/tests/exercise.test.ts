@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assignSample,
   createDrillSpec,
+  createDrillSpecForTier,
   createExerciseGenerator,
   createRankOrderJudge,
+  DEFAULT_EXERCISE_COUNT,
+  DEFAULT_RANGE,
+  DEFAULT_REPLAY_LIMIT,
+  describeDrillSpec,
+  DIFFICULTY_TIER_ORDER,
+  MAX_NOTE_COUNT,
+  maxSpanOf,
+  MIN_NOTE_COUNT,
+  OCTAVE_SEMITONES,
+  WIDE_RANGE,
   submitDraft,
   createAnswerDraft,
   setRankAt,
@@ -112,6 +124,85 @@ describe('出题器', () => {
       seen.add([...exercise.pitches].sort((a, b) => a - b).join(','));
     }
     expect(seen.size).toBeGreaterThan(50);
+  });
+});
+
+describe('难度档到规格的映射', () => {
+  it('每一档的音域与跨度规则', () => {
+    const standard = createDrillSpecForTier('standard', 3);
+    expect(standard.range).toEqual(DEFAULT_RANGE);
+    expect(standard.spanPattern).toBe('unrestricted');
+
+    const octave = createDrillSpecForTier('octave', 3);
+    expect(octave.range).toEqual(DEFAULT_RANGE);
+    expect(octave.spanPattern).toBe('within-octave');
+
+    const wide = createDrillSpecForTier('wide', 3);
+    expect(wide.range).toEqual(WIDE_RANGE);
+    expect(wide.spanPattern).toBe('unrestricted');
+    // 宽音域就是采样覆盖的完整范围（C1–A7）
+    expect(wide.range.min).toBe(-36);
+    expect(wide.range.max).toBe(45);
+
+    // 三档的音数与出题次数等默认值一致
+    for (const spec of [standard, octave, wide]) {
+      expect(spec.noteCount).toBe(3);
+      expect(spec.exerciseCount).toBe(DEFAULT_EXERCISE_COUNT);
+      expect(spec.replayLimit).toBe(DEFAULT_REPLAY_LIMIT);
+    }
+  });
+
+  it('宽音域档里的每个音高都能用采样精确发声（变调 ≤ 1 个半音）', () => {
+    // 这一档的音域等于采样覆盖范围，所以整档内都不会被夹回、也不需要大跨度变调
+    for (let pitch = WIDE_RANGE.min; pitch <= WIDE_RANGE.max; pitch += 1) {
+      expect(Math.abs(assignSample(pitch).detuneSemitones)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('每一档 × 每种音数都能出题，且题目满足该档的音域与跨度', () => {
+    const generator = createExerciseGenerator(lcg(31337));
+    for (const tier of DIFFICULTY_TIER_ORDER) {
+      for (let noteCount = MIN_NOTE_COUNT; noteCount <= MAX_NOTE_COUNT; noteCount += 1) {
+        const spec = createDrillSpecForTier(tier, noteCount);
+        for (let index = 0; index < 50; index += 1) {
+          const exercise = generator.generate(spec, `${tier}-${noteCount}-${index}`);
+          expect(exercise.pitches).toHaveLength(noteCount);
+          expect(new Set(exercise.pitches).size).toBe(noteCount);
+          for (const pitch of exercise.pitches) {
+            expect(pitch).toBeGreaterThanOrEqual(spec.range.min);
+            expect(pitch).toBeLessThanOrEqual(spec.range.max);
+          }
+          expect(spanOf(exercise.pitches)).toBeLessThanOrEqual(maxSpanOf(spec));
+          if (spec.spanPattern === 'within-octave') {
+            expect(spanOf(exercise.pitches)).toBeLessThanOrEqual(OCTAVE_SEMITONES);
+          }
+        }
+      }
+    }
+  });
+
+  it('三档的规格文案两两不同，音域不同的两档不会同名', () => {
+    const labels = DIFFICULTY_TIER_ORDER.map((tier) =>
+      describeDrillSpec(createDrillSpecForTier(tier, 3)),
+    );
+    expect(new Set(labels).size).toBe(DIFFICULTY_TIER_ORDER.length);
+    // 不限制跨度的规格带上实际音域，否则中音区与整键盘两档会写成同一个名字
+    expect(labels[0]).toContain('C3–C5');
+    expect(labels[1]).toContain('C1–A7');
+    expect(labels[2]).toBe('3 个音 · 八度内');
+  });
+
+  it('宽音域档的题确实会用到中音区之外的音', () => {
+    const generator = createExerciseGenerator(lcg(2024));
+    const spec = createDrillSpecForTier('wide', 3);
+    let outside = 0;
+    for (let index = 0; index < 100; index += 1) {
+      const exercise = generator.generate(spec, `wide-${index}`);
+      if (exercise.pitches.some((pitch) => pitch < DEFAULT_RANGE.min || pitch > DEFAULT_RANGE.max)) {
+        outside += 1;
+      }
+    }
+    expect(outside).toBeGreaterThan(50);
   });
 });
 
