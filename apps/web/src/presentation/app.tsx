@@ -39,8 +39,11 @@ export function App(): JSX.Element {
 
   const quitDrill = useCallback(() => {
     setIsDrilling(false);
+    // 退出练习必须同时重置领域状态：否则 runner 会停在「一局进行中」，
+    // 首页再换规格就会被 domain 拒绝，用户看到的现象是「换了规格却没生效」。
+    drill.quit();
     setSessionKey((key) => key + 1);
-  }, []);
+  }, [drill]);
 
   const restartSameSpec = useCallback(() => {
     setSessionKey((key) => key + 1);

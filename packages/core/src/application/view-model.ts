@@ -15,6 +15,7 @@ import type { Interval } from '../domain/value-objects/interval';
 import { intervalBetween, spanOf } from '../domain/value-objects/interval';
 import type { NoteName } from '../domain/value-objects/note-name';
 import { pitchToNoteName } from '../domain/value-objects/note-name';
+import type { Semitones } from '../domain/value-objects/pitch';
 import type { Rank } from '../domain/value-objects/rank';
 import type { DrillSession } from '../domain/entities/drill-session';
 
@@ -110,6 +111,25 @@ export interface DrillViewState {
   readonly correctSoFar: number;
   readonly accuracySoFar: number;
   readonly summary: SummaryView | null;
+  /**
+   * 整局题库的只读快照：每题的真实音高都在这里。
+   *
+   * 为什么要有它：答题过程中界面刻意不显示音高（否则用户会用读刻度代替听），
+   * 但「出题器到底出了什么」必须可核查——否则自动化验证、问题排查、以及以后可能做的
+   * 「回看本局答案」都无从下手。它只暴露数据，不参与任何显示逻辑。
+   */
+  readonly forge: readonly ForgeExerciseView[];
+}
+
+export interface ForgeExerciseView {
+  readonly exerciseNumber: number;
+  readonly id: string;
+  /** 按播放顺序的真实音高。 */
+  readonly pitches: readonly Semitones[];
+  /** 对应的音名，仅用于核对与调试。 */
+  readonly noteNames: readonly NoteName[];
+  /** 正确答案（每个音排第几）。 */
+  readonly correctRanks: readonly Rank[];
 }
 
 export interface BuildViewInput {
@@ -201,7 +221,6 @@ export function buildDrillViewState(input: BuildViewInput): DrillViewState {
   const { session, exercise } = input;
   const answeredSoFar = session === null ? 0 : answeredCount(session);
   const correctSoFar = session === null ? 0 : correctCount(session);
-
   const exerciseView: ExerciseView | null =
     exercise === null
       ? null
@@ -235,5 +254,20 @@ export function buildDrillViewState(input: BuildViewInput): DrillViewState {
     accuracySoFar: answeredSoFar === 0 ? 0 : correctSoFar / answeredSoFar,
     summary:
       session !== null && input.phase === 'finished' ? buildSummary(session) : null,
+    forge: buildForgeView(session),
   };
+}
+
+/** 整局题库的只读快照：真实音高与正确答案，供核查、排查与将来的「回看本局」。 */
+function buildForgeView(session: DrillSession | null): readonly ForgeExerciseView[] {
+  if (session === null) {
+    return [];
+  }
+  return session.exercises.map((item, index) => ({
+    exerciseNumber: index + 1,
+    id: item.id,
+    pitches: [...item.pitches],
+    noteNames: item.pitches.map(pitchToNoteName),
+    correctRanks: [...correctRanks(item)],
+  }));
 }

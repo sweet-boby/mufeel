@@ -114,22 +114,38 @@ export class DrillRunner {
     return unsubscribe;
   }
 
-  /** 换练习规格（首页改了音数或难度）。必须在 idle 状态下调用。 */
+  /**
+   * 换练习规格（首页改了音数或难度）。
+   *
+   * 判据必须是「阶段」而不是「有没有 session 对象」：一局答完之后、或者点了
+   * 「再练一局」又结束之后，状态里可能还留着上一局的 session，
+   * 用它来判断「练习进行中」会误伤——用户换了规格点开始，却被打回旧规格。
+   */
   setSpec(spec: DrillSpec): void {
-    if (this.#state.session !== null && !isComplete(this.#state.session)) {
+    if (this.#isDrillInProgress()) {
       throw new Error('一局练习进行中，不能更换规格');
     }
     this.#state = {
       ...this.#state,
       spec,
-      phase: this.#state.session === null ? 'idle' : this.#state.phase,
+      phase: 'idle',
+      session: null,
       activeExercise: null,
       draft: createAnswerDraft(spec.noteCount),
       proposal: createAnswerDraft(spec.noteCount),
       judgment: null,
       replaysUsed: 0,
+      isPlaying: false,
     };
     this.#emit();
+  }
+
+  #isDrillInProgress(): boolean {
+    return (
+      this.#state.phase === 'listening' ||
+      this.#state.phase === 'answering' ||
+      this.#state.phase === 'revealed'
+    );
   }
 
   /** 现在的重听上限：一局里每道题都是这个数。 */
@@ -367,7 +383,12 @@ export class DrillRunner {
   }
 
   #buildState(): DrillViewState {
-    const session = this.#state.session;
+    // 只有真正在一局里（或刚结算）才把 session 暴露给界面；
+    // reset / setSpec 之后即使状态里还残留旧的 session，也不该再出现在 view state 里。
+    const session =
+      this.#state.phase === 'idle' || this.#state.phase === 'loading-audio'
+        ? null
+        : this.#state.session;
     const exercise = this.#currentExercise();
     const noteCount = exercise?.pitches.length ?? this.#state.spec.noteCount;
     return buildDrillViewState({
@@ -401,7 +422,6 @@ export class DrillRunner {
     );
     return index < 0 ? 1 : index + 1;
   }
-
   #emit(): void {
     this.#emitter.emit({ type: 'state', state: this.#buildState() });
   }

@@ -68,3 +68,11 @@ CONTEXT.md                领域术语表（唯一真相：某个词在这个项
 | 换音色或换播放方式 | 实现 `domain/ports/audio-player.ts` 的端口（参考 `apps/web/src/infrastructure/`） |
 | 上安卓端 | 复用 `packages/core`，另写播放器适配器与界面 |
 | 改界面 / 加页面 | `apps/web/src/presentation/`，业务状态一律从 core 的 view state 取 |
+
+## 排查与验证用的后门（仅开发期）
+
+- 浏览器控制台里 `window.__yueganRunner` 是当前的 `DrillRunner`，可以直接读真实领域状态，
+  不必从 DOM 反推：`__yueganRunner.getState().forge` 能拿到整局题库的真实音高与正确答案
+  （答题中界面刻意不显示音高，但排查出题与判分时必须能拿到）。
+- 用规格里的 `spanPattern` 与 `range` 可以核对出题是否越界；`forge` 里的 `correctRanks`
+  是唯一的正确答案来源，不要另写一套推导。

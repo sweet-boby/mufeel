@@ -27,6 +27,13 @@ export interface DrillControls {
   submit: () => void;
   next: () => void;
   restartSameSpec: () => void;
+  /**
+   * 退出当前练习，回到「没在练习」的状态。
+   *
+   * 界面从练习页回到首页时必须调用它：只切页面不重置 runner，会留下一局「进行中」
+   * 的残留状态——首页换规格会被 domain 正确拒绝，用户却只看到自己选的规格没生效。
+   */
+  quit: () => void;
   toast: string | null;
 }
 
@@ -119,6 +126,9 @@ export function useDrill(): DrillControls {
     next: useCallback(() => void runner.next(), [runner]),
     restartSameSpec: useCallback(() => {
       void runner.reset().then(() => runner.start());
+    }, [runner]),
+    quit: useCallback(() => {
+      void runner.reset();
     }, [runner]),
     toast,
   };

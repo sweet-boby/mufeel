@@ -371,6 +371,95 @@ describe('DrillRunner 一局流程', () => {
     expect(harness.current().canSubmit).toBe(false);
   });
 
+  it('答完一局、再开一局又中途退出之后，仍然可以更换规格', async () => {
+    const overrides = { noteCount: 3, spanPattern: 'unrestricted' as const, exerciseCount: 2 };
+    const harness = createHarness(overrides);
+
+    // 1. 完整走完一局
+    await harness.runner.start();
+    for (let q = 0; q < 2; q += 1) {
+      harness.runner.selectRank(0, 1);
+      harness.runner.selectRank(1, 2);
+      harness.runner.selectRank(2, 3);
+      await harness.runner.submit();
+      await harness.runner.next();
+    }
+    expect(harness.current().phase).toBe('finished');
+
+    // 2. 再练一局（同规格），然后中途结束——这正是界面「再练一局 → 结束 → 换规格」的路径
+    await harness.runner.reset();
+    await harness.runner.start();
+    expect(harness.current().phase).toBe('answering');
+    await harness.runner.reset();
+    expect(harness.current().phase).toBe('idle');
+    // reset 之后残留的旧 session 不能再暴露给界面
+    expect(harness.current().sessionId).toBeNull();
+    expect(harness.current().exercise).toBeNull();
+
+    // 3. 换规格必须生效（曾经在这里抛「一局练习进行中，不能更换规格」，用户被静默打回旧规格）
+    expect(() =>
+      harness.runner.setSpec(createDrillSpec({ noteCount: 4, spanPattern: 'within-octave' })),
+    ).not.toThrow();
+    const swapped = harness.current().spec;
+    expect(swapped.noteCount).toBe(4);
+    expect(swapped.spanPattern).toBe('within-octave');
+
+    // 4. 用新规格开始，出的题必须真的是新规格
+    await harness.runner.start();
+    const state = harness.current();
+    expect(state.spec.noteCount).toBe(4);
+    expect(state.exercise?.noteCount).toBe(4);
+    expect(state.exercise?.notes).toHaveLength(4);
+    for (const note of state.exercise?.notes ?? []) {
+      expect(note.options).toHaveLength(4);
+    }
+  });
+
+  it('一局正在进行时更换规格会被明确拒绝（而不是静默改坏状态）', async () => {
+    const harness = createHarness({ noteCount: 2, spanPattern: 'unrestricted', exerciseCount: 3 });
+    await harness.runner.start();
+    expect(harness.current().phase).toBe('answering');
+    expect(() => harness.runner.setSpec(createDrillSpec({ noteCount: 5, spanPattern: 'within-octave' }))).toThrow();
+    // 拒绝之后，当前这一局必须原样继续
+    expect(harness.current().spec.noteCount).toBe(2);
+    expect(harness.current().exercise?.noteCount).toBe(2);
+  });
+
+  it('view state 里能拿到整局题库的真实音高（forge 快照），且不泄漏到界面显示上', async () => {
+    const overrides = { noteCount: 4, spanPattern: 'within-octave' as const, exerciseCount: 5 };
+    const harness = createHarness(overrides);
+    await harness.runner.start();
+
+    const state = harness.current();
+    // 核查用快照：整局 5 题、每题 4 个音、音高与正确答案都拿得到
+    expect(state.forge).toHaveLength(5);
+    for (const item of state.forge) {
+      expect(item.pitches).toHaveLength(4);
+      expect(new Set(item.pitches).size).toBe(4);
+      expect(item.noteNames).toHaveLength(4);
+      expect([...item.correctRanks].sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+      expect(Math.max(...item.pitches) - Math.min(...item.pitches)).toBeLessThanOrEqual(12);
+    }
+
+    // 但答题中界面侧依然不显示音高与真实跨度
+    expect(state.exercise?.truthNoteNames).toBeNull();
+    expect(state.exercise?.truthSpanSemitones).toBeNull();
+    expect(state.exercise?.notes.every((note) => note.feedback === null)).toBe(true);
+
+    // forge 与正确答案必须一致
+    const truth = reproduceTruth(overrides, 0);
+    expect([...state.forge[0]!.correctRanks]).toEqual([...truth]);
+  });
+
+  it('没有一局练习时 forge 是空的，不会把上一局的题库留在界面状态里', async () => {
+    const harness = createHarness({ noteCount: 2, spanPattern: 'unrestricted', exerciseCount: 2 });
+    expect(harness.current().forge).toEqual([]);
+    await harness.runner.start();
+    expect(harness.current().forge).toHaveLength(2);
+    await harness.runner.reset();
+    expect(harness.current().forge).toEqual([]);
+  });
+
   it('结算后 reset 回到未开始状态', async () => {
     const harness = createHarness({ noteCount: 2, spanPattern: 'unrestricted', exerciseCount: 1 });
     await harness.runner.start();
