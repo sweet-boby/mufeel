@@ -1038,3 +1038,13 @@ noscript { display: block; padding: 2rem; text-align: center; color: var(--text-
   font-weight: 600;
   color: var(--text-dim);
 }
+
+/* 禁用态：主按钮不能再是一副可点的样子（排序题未填满时的提交按钮就是这种状态） */
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+}
+.btn:disabled:active {
+  transform: none;
+}

@@ -9,7 +9,7 @@ kind: "package-library"
 
 `@yuegan/web` 是产品装配层，不是库：没有别的包 import 它，它的产物是一个网页。它用 React 19.3.0 渲染七个模块的课程（音高 / 音程 / 和弦 / 音阶与调式 / 音级 / 和弦进行 / 旋律），用一套钢琴采样播放全部题型，用 localStorage 存技能项与关卡两级进度，并支持中英双语（默认中文）。课程结构、七种题型的思路与界面样式移植自 [abeage1/earpath-app](https://github.com/abeage1/earpath-app)（MIT）；本项目在它之上加了 **n 个音排序**练习（音高模块第 5–10 关）与双语。
 
-音乐判断一条都不在这里：排序题的出题、正确答案与判分全部来自 `@yuegan/core`；这一层只做「音高 → 播放事件 / 音名」的翻译与渲染。课程层面的规则（一关要连对几题、技能项权重、每日混合题数）是产品概念，住在 `src/domain/curriculum.ts` 与 `src/infrastructure/progress.ts`，core 里没有对应物。依赖方向是单向的——`apps/web` → `@yuegan/core`，core 不知道 web 存在。
+音乐判断一条都不在这里：排序题的出题、正确答案与判分全部来自 `@yuegan/core`；这一层只做「音高 → 播放事件 / 音名」的翻译与渲染。课程层面的规则（一关要连对几题、技能项权重、每日混合题数）是产品概念，住在 `src/course/curriculum.ts` 与 `src/infrastructure/progress.ts`，core 里没有对应物。依赖方向是单向的——`apps/web` → `@yuegan/core`，core 不知道 web 存在。
 
 ## Table of Contents
 
@@ -37,8 +37,8 @@ pnpm test     # 跑 i18n 门禁（vitest）
 
 | 想改什么 | 改哪里 |
 |---|---|
-| 课程：加模块、加关卡、调解锁 | `src/domain/curriculum.ts`（文案用 i18n key，两份字典要同时补） |
-| 加一种题型或改出题 | `src/domain/questions/`（协议在 `types.ts`，派发在 `index.ts`） |
+| 课程：加模块、加关卡、调解锁 | `src/course/curriculum.ts`（文案用 i18n key，两份字典要同时补） |
+| 加一种题型或改出题 | `src/questions/`（协议在 `types.ts`，派发在 `index.ts`） |
 | 界面结构、交互、样式 | `src/presentation/`、`src/styles/global.css` |
 | 播放方式、音色 | `src/infrastructure/audio/` |
 | 进度存档、设置项 | `src/infrastructure/progress.ts` |
@@ -59,20 +59,20 @@ pnpm test     # 跑 i18n 门禁（vitest）
 |---|---|
 | [`src/main.tsx`](src/main.tsx) | 读存档 → 挂载 React → 注册 Service Worker；找不到 `#root` 就抛错，而不是静默白屏 |
 | [`src/app/App.tsx`](src/app/App.tsx) | hash 路由（`#/module/:id`、`#/practice/:id/:level`、`#/daily`、`#/stats`、`#/settings`、`#/guide`）与入门引导浮层 |
-| [`src/domain/curriculum.ts`](src/domain/curriculum.ts) | 模块、关卡、解锁路径与每关练什么；Pitch 模块的排序关卡在这里把「音数 + 难度档」交给 core |
-| [`src/domain/theory.ts`](src/domain/theory.ts) | 乐理数据：音程/和弦/音阶/音级的半音结构与参考曲目；名字存成 i18n key |
-| [`src/domain/questions/`](src/domain/questions/) | 四种题型的生成器：`choice` / `sequence` / `melody` / `rank`；`rank.ts` 是排序题接 core 的适配层 |
+| [`src/course/curriculum.ts`](src/course/curriculum.ts) | 模块、关卡、解锁路径与每关练什么；Pitch 模块的排序关卡在这里把「音数 + 难度档」交给 core |
+| [`src/i18n/domain-labels.ts`](src/i18n/domain-labels.ts) | 领域 id → 文案的映射（名字、参考曲目、方向）与音名/MIDI 换算；音乐事实本身在 core |
+| [`src/questions/`](src/questions/) | 四种题型的生成器（`choice` / `sequence` / `melody` / `rank`）、题型协议、播放事件构造器；`rank.ts` 是排序题接 core 的适配层 |
 | [`src/presentation/useSession.ts`](src/presentation/useSession.ts) | 练习会话状态机（reducer）：出题 → 播放 → 作答 → 判分 → 下一题，含重听上限、自动前进与结算浮层 |
 | [`src/presentation/screens/`](src/presentation/screens/) | 首页、模块页、练习页（四种作答 UI）、统计页、设置页、指南页 |
 | [`src/presentation/components/`](src/presentation/components/) | 顶栏、进度圆环、屏幕键盘、入门引导 |
-| [`src/infrastructure/audio/piano-engine.ts`](src/infrastructure/audio/piano-engine.ts) | 全站唯一的发声通道：采样加载与事件调度；[`events.ts`](src/infrastructure/audio/events.ts) 负责把音程/和弦/音阶/终止式/旋律翻成时间轴 |
+| [`src/infrastructure/audio/piano-engine.ts`](src/infrastructure/audio/piano-engine.ts) | 全站唯一的发声通道：采样加载与事件调度（事件构造器在 [`questions/events.ts`](src/questions/events.ts)，它是纯数据，不碰 Web Audio） |
 | [`src/infrastructure/audio/core-audio-player.ts`](src/infrastructure/audio/core-audio-player.ts) | 给 core 的 `AudioPlayer` 端口做的适配器：**排序题的播放走它**，其余题型直接给采样引擎事件（需要和弦与终止式） |
 | [`src/infrastructure/progress.ts`](src/infrastructure/progress.ts) | 进度与设置：技能项/关卡两级统计、连击、每日活动、混淆统计、导入导出；对外只暴露一个版本号订阅 |
 | [`src/i18n/`](src/i18n/) | 中英字典、翻译运行时与一致性门禁测试 |
 
 ### 排序题怎么接 core
 
-[`src/domain/questions/rank.ts`](src/domain/questions/rank.ts) 只做三件事：调 core、把音高换成播放事件、把判分结果换成界面协议。
+[`src/questions/rank.ts`](src/questions/rank.ts) 只做翻译：调 core、把音高序列交给 core 的播放端口、把判分结果换成界面协议。
 
 | core 提供 | 用在哪 |
 |---|---|
@@ -97,7 +97,7 @@ pnpm test     # 跑 i18n 门禁（vitest）
 
 `useSession` 是一个 reducer：`question` / `playing` / `played` / `answered` 等动作驱动，所有作答草稿（`rankDraft`、`seqPick`、`melodyPick`）都在 reducer 里更新——**这一点是刻意的**：档位分配必须在最新草稿上计算，否则快速连点两格时第二次会拿渲染期的旧草稿做基准而互相覆盖。
 
-几个关键时序：音频未就绪时先显示「点一下开始」（用户手势同时也满足浏览器对 AudioContext 的要求）；首题在采样加载完成后自动播放，且**不计入重听**；答对且开了自动前进时，1.1 秒后自己走；关卡达标弹庆祝，每日混合满 15 题弹小结。
+几个关键时序：音频未就绪时先显示「点一下开始」（用户手势同时也满足浏览器对 AudioContext 的要求）；首题在采样加载完成后自动播放，且**不计入重听**；答对且开了自动前进时，1.1 秒后自己走——**排序题例外**：它的反馈（真实顺序 + 逐音「你填/正确/真实音高」）是这道题最该看的东西，永远停下来等用户点「下一题」，本关达成时也先把按钮换成「看结果」，点了才弹庆祝浮层；答完题还会把操作区滚进视野（排序题与旋律题的作答区很高，反馈一出现「下一题」就会被挤到首屏之外）；每日混合满 15 题弹小结。
 
 ### 进度模型
 
@@ -105,7 +105,11 @@ pnpm test     # 跑 i18n 门禁（vitest）
 
 ### i18n
 
-`src/i18n/` 里 `zh.ts` 是默认语言、`en.ts` 是英文，key 扁平（`module.pitch.level.order3.name` 这种）。课程表、乐理数据里所有面向用户的字段都存 **key**（`nameKey` / `hintKey` / `songKeys`），由界面按当前语言翻译。`i18n.test.ts` 强制四件事：两份字典 key 完全一致、同一条文案的插值占位符一致、源码里 `t('...')` 用到的 key 都存在、课程表与乐理数据里的 key 都存在。测试用 `import.meta.glob` 读源码，因此不需要 node 类型。
+`src/i18n/` 里 `zh.ts` 是默认语言、`en.ts` 是英文，key 扁平（`module.pitch.level.order3.name` 这种）。
+面向用户的名字有两条来源，都指向字典：课程表里的文案字段（`nameKey` / `hintKey`），
+以及 `domain-labels.ts` 里「core 的内容 id → 文案 key」的映射（音程/和弦/音阶的名字、参考曲目、方向符号）。
+`i18n.test.ts` 强制四件事：两份字典 key 完全一致、同一条文案的插值占位符一致、源码里 `t('...')` 用到的 key 都存在、
+以及 core 内容表的 id 与这里的名字映射一一对应（多一条少一条都红）。测试用 `import.meta.glob` 读源码，因此不需要 node 类型。
 
 ### 为什么用采样而不是合成音
 

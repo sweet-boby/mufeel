@@ -9,7 +9,7 @@
  * 这样答题热路径上不需要深拷贝整棵状态树。
  */
 
-import { MODULES, moduleById } from '../domain/curriculum';
+import { MODULES, moduleById } from '../course/curriculum';
 import type { Lang } from '../i18n/types';
 import { DEFAULT_LANG, isLang } from '../i18n/languages';
 

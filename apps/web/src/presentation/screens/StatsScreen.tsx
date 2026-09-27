@@ -3,11 +3,12 @@
  */
 
 import type { JSX } from 'react';
-import { MODULES, moduleById } from '../../domain/curriculum';
-import { CHORDS, DEGREES, INTERVALS, SCALES } from '../../domain/theory';
+import { MODULES, moduleById } from '../../course/curriculum';
+import { CHORDS, DEGREES, INTERVALS, SCALES } from '@yuegan/core';
+import { scaleNameKey } from '../../i18n/domain-labels';
 import { useT } from '../../i18n';
 import * as Progress from '../../infrastructure/progress';
-import { chordEvents, intervalEvents, scaleEvents } from '../../infrastructure/audio/events';
+import { chordEvents, intervalEvents, scaleEvents } from '../../questions/events';
 import { pianoEngine } from '../../infrastructure/audio/piano-engine';
 import { TopBar, formatPct, moduleColor } from '../components/Chrome';
 import { useProgressVersion } from '../hooks';
@@ -25,7 +26,7 @@ export function StatsScreen(): JSX.Element {
   const confusionName = (moduleId: string, id: string): string => {
     if (moduleId === 'intervals') return INTERVALS[id]?.short ?? id;
     if (moduleId === 'chords') return CHORDS[id]?.short ?? id;
-    if (moduleId === 'scales') return t(SCALES[id]?.nameKey ?? id);
+    if (moduleId === 'scales') return t(scaleNameKey(id));
     if (moduleId === 'degrees') return DEGREES[id]?.solfege ?? id;
     return id;
   };
@@ -35,17 +36,19 @@ export function StatsScreen(): JSX.Element {
     pianoEngine.stopNow();
     const root = 60;
     if (moduleId === 'intervals' && INTERVALS[id] !== undefined) {
-      void pianoEngine.playEvents(intervalEvents(root, INTERVALS[id].semis, 'a'));
+      void pianoEngine.playEvents(intervalEvents(root, INTERVALS[id].semitones, 'a'));
     } else if (moduleId === 'chords' && CHORDS[id] !== undefined) {
-      void pianoEngine.playEvents(chordEvents(root, CHORDS[id].semis, state.settings.chordStyle));
+      void pianoEngine.playEvents(
+        chordEvents(root, CHORDS[id].semitones, state.settings.chordStyle),
+      );
     } else if (moduleId === 'scales' && SCALES[id] !== undefined) {
-      void pianoEngine.playEvents(scaleEvents(root, SCALES[id].semis));
+      void pianoEngine.playEvents(scaleEvents(root, SCALES[id].semitones));
     } else if (moduleId === 'degrees') {
       const degree = DEGREES[id];
       if (degree !== undefined) {
         void pianoEngine.playEvents([
           { midi: root, at: 0, dur: 0.6 },
-          { midi: root + degree.semis, at: 0.75, dur: 0.9 },
+          { midi: root + degree.semitones, at: 0.75, dur: 0.9 },
         ]);
       }
     }

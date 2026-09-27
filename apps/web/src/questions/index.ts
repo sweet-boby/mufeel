@@ -5,7 +5,7 @@
  * 「排序」（rank）两种关卡，所以派发看的是**关卡**的 kind，而不是模块的。
  */
 
-import { moduleById, type LevelDef, type ModuleDef } from '../curriculum';
+import { moduleById, type LevelDef, type ModuleDef } from '../course/curriculum';
 import { generateCompare } from './compare';
 import { generateInterval, generateChord, generateScale } from './choice-modules';
 import { generateDegree, generateProgression } from './functional-modules';

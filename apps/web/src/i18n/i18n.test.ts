@@ -11,8 +11,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MODULES, ONBOARDING_PATHS } from '../domain/curriculum';
-import { CHORDS, DEGREES, DIRECTIONS, INTERVALS, SCALES } from '../domain/theory';
+import { CHORDS, DEGREES, INTERVALS, SCALES } from '@yuegan/core';
+import { MODULES, ONBOARDING_PATHS } from '../course/curriculum';
+import {
+  CHORD_NAME_KEYS,
+  DIRECTIONS,
+  INTERVAL_NAME_KEYS,
+  INTERVAL_SONG_KEYS,
+  SCALE_NAME_KEYS,
+  SCALE_SUB_KEYS,
+} from './domain-labels';
 import { en } from './en';
 import { placeholders } from './translate';
 import { zh } from './zh';
@@ -93,25 +101,45 @@ describe('课程表与乐理数据的 key', () => {
     expect(missing).toEqual([]);
   });
 
-  it('乐理数据的名字与参考曲目都存在', () => {
+  /**
+   * 内容在 core（有哪些音程/和弦/音阶），名字在 Web（`domain-labels.ts` + 两份字典）。
+   * 这张测试守的正是这条缝：core 里有的内容，这里必须有名字，否则界面会显示 id 本身。
+   */
+  it('core 的每一条内容都有名字，且参考曲目都能查到文案', () => {
     const missing: string[] = [];
-    for (const interval of Object.values(INTERVALS)) {
-      if (zh[interval.nameKey] === undefined) missing.push(interval.nameKey);
-      for (const songKey of Object.values(interval.songKeys ?? {})) {
+
+    // 1) 内容 id 与名字映射必须一一对应（多一个、少一个都算漂移）
+    const expectSameIds = (label: string, content: Record<string, unknown>, names: Record<string, string>) => {
+      const contentIds = Object.keys(content).sort();
+      const nameIds = Object.keys(names).sort();
+      if (contentIds.join(',') !== nameIds.join(',')) {
+        missing.push(`${label}: core=[${contentIds}] names=[${nameIds}]`);
+      }
+    };
+    expectSameIds('音程', INTERVALS, INTERVAL_NAME_KEYS);
+    expectSameIds('和弦', CHORDS, CHORD_NAME_KEYS);
+    expectSameIds('音阶', SCALES, SCALE_NAME_KEYS);
+
+    // 2) 每一条名字都要在字典里
+    for (const key of [
+      ...Object.values(INTERVAL_NAME_KEYS),
+      ...Object.values(CHORD_NAME_KEYS),
+      ...Object.values(SCALE_NAME_KEYS),
+      ...Object.values(SCALE_SUB_KEYS),
+      ...Object.values(DIRECTIONS).map((direction) => direction.nameKey),
+    ]) {
+      if (zh[key] === undefined) missing.push(key);
+    }
+
+    // 3) 参考曲目：key 必须真实存在，且只挂在真实存在的音程上
+    for (const [id, songs] of Object.entries(INTERVAL_SONG_KEYS)) {
+      if (INTERVALS[id] === undefined) missing.push(`参考曲目挂在不存在的音程上：${id}`);
+      for (const songKey of Object.values(songs)) {
         if (zh[songKey] === undefined) missing.push(songKey);
       }
     }
-    for (const chord of Object.values(CHORDS)) {
-      if (zh[chord.nameKey] === undefined) missing.push(chord.nameKey);
-    }
-    for (const scale of Object.values(SCALES)) {
-      if (zh[scale.nameKey] === undefined) missing.push(scale.nameKey);
-      if (scale.subKey !== undefined && zh[scale.subKey] === undefined) missing.push(scale.subKey);
-    }
-    for (const direction of Object.values(DIRECTIONS)) {
-      if (zh[direction.nameKey] === undefined) missing.push(direction.nameKey);
-    }
-    // 音级标签（Do / 1）刻意不翻译，但它的数量要与字典无关地稳定
+
+    // 4) 音级标签（Do / 1）是记号，刻意不进字典；数量与 core 对齐即可
     expect(Object.keys(DEGREES)).toHaveLength(12);
     expect(missing).toEqual([]);
   });

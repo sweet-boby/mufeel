@@ -7,8 +7,8 @@
  */
 
 import { DEFAULT_PLAYBACK, type AudioPlayer, type PlaybackTiming, type Semitones } from '@yuegan/core';
-import { midiFromPitch } from '../../domain/theory';
-import type { PlaybackEvent } from '../../domain/playback';
+import { midiFromPitch } from '../../i18n/domain-labels';
+import type { PlaybackEvent } from '../../questions/playback';
 import { pianoEngine, type PianoEngine } from './piano-engine';
 
 export class PianoEngineAudioPlayer implements AudioPlayer {

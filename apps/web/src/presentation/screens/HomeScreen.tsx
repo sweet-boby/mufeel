@@ -3,7 +3,7 @@
  */
 
 import type { JSX } from 'react';
-import { MODULES, moduleById } from '../../domain/curriculum';
+import { MODULES, moduleById } from '../../course/curriculum';
 import { useT } from '../../i18n';
 import * as Progress from '../../infrastructure/progress';
 import { Ring, TopBar, moduleColor } from '../components/Chrome';

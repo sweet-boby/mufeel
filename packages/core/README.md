@@ -67,7 +67,44 @@ const judgment = createRankOrderJudge().judge(exercise, submitDraft(exercise, [.
 judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 ```
 
-出题器与判分器只依赖 `RandomSource` 这类端口，注入确定性实现就能复现任何一局，不需要 mock `Math.random`。Web 端的排序题走的就是这一节：`apps/web/src/domain/questions/rank.ts` 用 `createDrillSpecForTier` 拼规格、用出题器出题、用 `createRankOrderJudge` 判分；播放另走 `AudioPlayer` 端口（适配器 `apps/web/src/infrastructure/audio/core-audio-player.ts`，时序用 core 的 `DEFAULT_PLAYBACK`），界面只负责渲染。
+出题器与判分器只依赖 `RandomSource` 这类端口，注入确定性实现就能复现任何一局，不需要 mock `Math.random`。Web 端的排序题走的就是这一节：`apps/web/src/questions/rank.ts` 用 `createDrillSpecForTier` 拼规格、用出题器出题、用 `createRankOrderJudge` 判分；播放另走 `AudioPlayer` 端口（适配器 `apps/web/src/infrastructure/audio/core-audio-player.ts`，时序用 core 的 `DEFAULT_PLAYBACK`），界面只负责渲染。
+
+### 只要内容：音程、和弦、音阶、音级、级数
+
+六个移植来的模块（音程 / 和弦 / 音阶与调式 / 音级 / 和弦进行 / 旋律）的音乐事实也在这个包里，
+因为它们平台无关、语言无关（ADR 0004）：
+
+```ts
+import {
+  CHORDS, DEGREES, INTERVALS, NUMERALS, SCALES, CADENCES,
+  chordSemitones, intervalSemitones, voiceNumeral, planMelody, allowedMelodyPitches,
+  createMathRandomSource,
+} from '@yuegan/core'
+
+intervalSemitones('P5')        // 7
+chordSemitones('maj7')         // [0, 4, 7, 11]
+SCALES['dorian'].semitones     // [0, 2, 3, 5, 7, 9, 10, 12]
+NUMERALS['V']                  // { root: 7, quality: 'maj' }——指向和弦 id，不另抄一份半音
+voiceNumeral(60, 'V')          // 贝斯 + 靠中央 C 的柱式和弦，四个 MIDI 号
+CADENCES.major                 // ['I', 'IV', 'V', 'I']：功能题先立调性
+
+const plan = planMelody(
+  { keyRoot: 60, degrees: ['do', 're', 'mi', 'fa', 'sol'], length: 4 },
+  createMathRandomSource(),
+)
+plan.pitches                   // 四个音，全部落在 do–sol 之内；plan.allowed 是键盘范围
+```
+
+三条约定：
+
+1. **表里只有 id 与半音结构**，外加语言无关的记号（`m2`、`maj7`、`Do`、`1`）。
+   面向用户的名字与参考曲目由平台侧提供（Web 在 `apps/web/src/i18n/domain-labels.ts` 与两份字典里）——
+   加一条内容要动两处，`apps/web/src/i18n/i18n.test.ts` 会比对两边的 id 集合。
+2. **级数指向和弦 id**（`quality: 'maj'`），不在级数表里再写一遍半音排列：两处会漂。
+3. **算法走 `RandomSource` 端口**：`planMelody` 与 `createExerciseGenerator` 一样，注入确定性随机源就能复现。
+
+这两条算法的性质由 `tests/theory-content.test.ts` 守着（表的结构、200 条旋律的音级集合、跳进关真的跳出过五度、
+变化音只在邻音上且结尾不漂、查表遇未知 id 一律抛错）。
 
 -----
 

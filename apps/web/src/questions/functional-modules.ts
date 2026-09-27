@@ -5,11 +5,11 @@
  * 移植自 earpath-app 的 `genDegree` / `genProgression`。
  */
 
-import type { DegreeLevel, ModuleDef, ProgressionLevel } from '../curriculum';
-import { CADENCES, DEGREES, NUMERALS, choice, randInt } from '../theory';
-import { cadenceEvents } from '../../infrastructure/audio/events';
-import { eventsDuration, shiftEvents, type PlaybackEvent } from '../playback';
-import { cadenceFor, pickWeighted, playFresh, voiceNumeral } from './shared';
+import { DEGREES, voiceNumeral } from '@yuegan/core';
+import type { DegreeLevel, ModuleDef, ProgressionLevel } from '../course/curriculum';
+import { eventsDuration, shiftEvents, type PlaybackEvent } from './playback';
+import { choice, randInt } from './random';
+import { cadenceFor, pickWeighted, playFresh } from './shared';
 import type { ChoiceQuestion, GenerateContext, QuestionResult, SequenceQuestion } from './types';
 
 export function generateDegree(
@@ -24,9 +24,9 @@ export function generateDegree(
   );
   const keyRoot = randInt(53, 64);
   const octave = level.wide === true ? choice([-12, 0, 12]) : choice([0, 12]);
-  const noteMidi = keyRoot + (DEGREES[picked.id]?.semis ?? 0) + octave;
+  const noteMidi = keyRoot + (DEGREES[picked.id]?.semitones ?? 0) + octave;
 
-  const cadence = cadenceFor(keyRoot, level.mode, CADENCES);
+  const cadence = cadenceFor(keyRoot, level.mode);
   const noteAt = eventsDuration(cadence) + 0.55;
   const events: PlaybackEvent[] = [...cadence, { midi: noteMidi, at: noteAt, dur: 1.0 }];
 
@@ -57,7 +57,7 @@ export function generateDegree(
     mnemonic: null,
     // 从与题目音相同的音区重放某个音级，方便对比
     playOption: (id: string) => {
-      const semis = DEGREES[id]?.semis ?? 0;
+      const semis = DEGREES[id]?.semitones ?? 0;
       const candidates = [-12, 0, 12].map((o) => keyRoot + semis + o);
       const closest = candidates.reduce((a, b) =>
         Math.abs(b - noteMidi) < Math.abs(a - noteMidi) ? b : a,
@@ -104,7 +104,7 @@ export function generateProgression(
   }
 
   const keyRoot = randInt(50, 59);
-  const cadence = cadenceFor(keyRoot, level.mode, CADENCES);
+  const cadence = cadenceFor(keyRoot, level.mode);
   let at = eventsDuration(cadence) + 0.8;
   const progressionEvents: PlaybackEvent[] = [];
   for (const numeral of seq) {
@@ -121,7 +121,7 @@ export function generateProgression(
     levelIdx,
     prompt: ctx.t(level.promptKey ?? mod.promptKey),
     howTo: ctx.t(level.howToKey ?? mod.howToKey ?? mod.tipKey),
-    options: level.pool.map((id) => ({ id, label: NUMERALS[id]?.name ?? id })),
+    options: level.pool.map((id) => ({ id, label: id })),
     answerSeq: seq,
     given,
     play: () => playFresh(ctx, events),
@@ -146,9 +146,3 @@ export function generateProgression(
     },
   };
 }
-
-/**
- * 终止式事件的公开助手：旋律题也要用它，放在这里避免两个生成器各写一份。
- */
-export const progressionCadence = (keyRoot: number, mode: string): PlaybackEvent[] =>
-  cadenceEvents(CADENCES[mode]!.map((n) => ({ root: 0, semis: voiceNumeral(keyRoot, n) })));

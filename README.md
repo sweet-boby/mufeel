@@ -27,20 +27,23 @@ pnpm dev
 ```text
 packages/core/               平台无关的领域核心（@yuegan/core）：纯 TypeScript，无运行时依赖
   src/domain/value-objects/  音高、音名、音程、档位、稀疏采样映射
+  src/domain/content/        音乐内容：音程/和弦/音阶/音级/级数的半音结构（只有事实，没有名字）
   src/domain/entities/       题目、作答、判分结果、练习规格、一局练习
-  src/domain/services/       出题器与判分器：排序题的全部规则
+  src/domain/services/       出题器与判分器（排序题的全部规则）、声部安排、旋律出题规则
   src/domain/ports/          音频播放、练习记录仓储、随机源（只有接口）
   src/application/           一局练习的编排（DrillRunner）与 view state
-  tests/                     4 个测试文件、51 个用例
+  tests/                     5 个测试文件、67 个用例
 apps/web/                    浏览器端（@yuegan/web）：React 界面 + 采样播放 + 课程
   src/app/                   hash 路由与应用外壳
-  src/domain/                课程表、乐理数据、四种题型的生成器（含排序题接 core 的适配）
-  src/i18n/                  中英字典与翻译运行时（含一致性门禁测试）
+  src/course/                课程表：模块、关卡、解锁路径
+  src/questions/             四种题型的协议与生成器、播放事件构造器（含排序题接 core 的适配）
+  src/i18n/                  中英字典、翻译运行时、领域 id → 文案的映射（含一致性门禁测试）
   src/infrastructure/        采样播放引擎、进度存档
   src/presentation/          七个页面、练习会话状态机与组件
   src/styles/global.css      深色主题样式（移植自 earpath 的样式表，末尾是本仓库新增部分）
   public/samples/piano/      28 个 Salamander 钢琴采样
-docs/adr/                    架构决策记录：0001 领域核心与平台分离、0002 原生 Web Audio、0003 课程壳与排序题
+docs/adr/                    架构决策记录：0001 领域核心与平台分离、0002 原生 Web Audio、
+                             0003 课程壳与排序题的分工、0004 音乐内容进 core 而显示名留平台
 CONTEXT.md                   领域术语的唯一定义处
 AGENTS.md                    面向 agent 的工作约定
 ```
@@ -48,6 +51,8 @@ AGENTS.md                    面向 agent 的工作约定
 仓库用 pnpm 管理，workspace 只有 `packages/core` 与 `apps/web` 两个包；根包 `yuegan` 是 private 的，只放脚本与 `tsconfig.base.json`。
 
 `packages/core` 里不出现任何浏览器 API：播放、存储、随机数一律通过 `packages/core/src/domain/ports/` 的接口注入。
+音乐事实（有哪些音程/和弦/音阶/音级、每种怎么排列）与两条纯算法（声部安排、旋律出题规则）也住在 core；
+面向用户的名字与参考曲目住在 `apps/web/src/i18n/`——这条分工见 [ADR 0004](docs/adr/0004-music-content-lives-in-core.md)。
 `apps/web` 单向依赖 `@yuegan/core`，import 一律走包入口。课程与进度这类产品概念住在 `apps/web`，
 排序题的出题与判分规则只住在 `packages/core`——这条分工见 [ADR 0003](docs/adr/0003-earpath-curriculum-in-web.md)。
 
@@ -62,7 +67,7 @@ AGENTS.md                    面向 agent 的工作约定
 | `pnpm test` | `pnpm -r run test` | core 的行为测试 + web 的 i18n 门禁 |
 | `pnpm test:docs` | `node scripts/verify-docs.mjs` | 文档门禁：路径、命令、链接，以及 core 的平台边界与包入口依赖 |
 
-实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 51 个用例，`apps/web` 通过 6 个 i18n 用例；
+实测：`pnpm test` 在 `packages/core` 的 5 个测试文件里通过 67 个用例，`apps/web` 通过 7 个 i18n 用例；
 `pnpm typecheck` 两个包都通过；`pnpm build` 产出 JS 主包约 339 KB（gzip 105 KB）、CSS 约 22 KB（gzip 5.3 KB），
 另有 28 个采样共 1.8 MB 与 manifest / Service Worker。
 
@@ -115,12 +120,13 @@ AGENTS.md                    面向 agent 的工作约定
 
 | 想做的事 | 改哪里 |
 | --- | --- |
-| 加一个模块或关卡 | `apps/web/src/domain/curriculum.ts` 加模块/关卡，`apps/web/src/domain/questions/` 加生成器，`apps/web/src/i18n/` 两份字典补文案 |
-| 改排序题的难度档（音域 + 跨度规则 + 显示名） | `packages/core/src/domain/entities/drill-spec.ts` 的 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`，再在 `apps/web/src/domain/curriculum.ts` 里把新档安排成关卡；要新的跨度/音程约束才动 `packages/core/src/domain/services/exercise-generator.ts` |
+| 加一个模块或关卡 | `apps/web/src/course/curriculum.ts` 加模块/关卡，`apps/web/src/questions/` 加生成器，`apps/web/src/i18n/` 两份字典补文案 |
+| 改排序题的难度档（音域 + 跨度规则 + 显示名） | `packages/core/src/domain/entities/drill-spec.ts` 的 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`，再在 `apps/web/src/course/curriculum.ts` 里把新档安排成关卡；要新的跨度/音程约束才动 `packages/core/src/domain/services/exercise-generator.ts` |
 | 改排序题的判分口径（音程、音级、部分得分） | 另写一个 `Judge` 实现，替换 `packages/core/src/domain/services/judge.ts` 的注入点 |
 | 换音色或换播放方式 | `apps/web/src/infrastructure/audio/piano-engine.ts`；要给 `packages/core` 的 `AudioPlayer` 端口换实现就改 `apps/web/src/infrastructure/audio/core-audio-player.ts` |
 | 换进度存储（账号、服务端） | `apps/web/src/infrastructure/progress.ts` 的读写与订阅；core 的 `DrillRecordRepository` 端口仍在，但要先有装配点 |
 | 改界面、加页面 | `apps/web/src/presentation/`；业务状态取自题型协议与进度存档，界面里不推算规则 |
+| 加一条音乐内容（新音程/和弦/音阶/音级） | 先加进 `packages/core/src/domain/content/`（半音结构），再在 `apps/web/src/i18n/domain-labels.ts` 与两份字典补名字；`pnpm test` 会比对两边的 id 集合 |
 | 加一门语言 | 在 `apps/web/src/i18n/` 加字典并登记 `LANGUAGES`，跑 `pnpm test` 让门禁检查 key 完整性 |
 | 把领域核心用到别的平台 | 原样复用 `packages/core`（`DrillRunner` 是一局固定题数练习的参考编排），另写端口适配器与界面 |
 

@@ -80,7 +80,7 @@ export const DIFFICULTY_TIER_ORDER: readonly DifficultyTier[] = [
 
 ## 4. 在课程表里安排一关，并补上两份字典的文案
 
-core 侧加完档，界面上还看不到它：**Web 端没有难度按钮，难度档是 Pitch 模块排序关卡的属性**。关卡表在 `apps/web/src/domain/curriculum.ts`，`rankLevel(id, noteCount, tier)` 把关卡 id、音数与档位捆在一起——把它插进 `pitch` 模块的 `levels` 数组，这一档就在课程里有了位置：
+core 侧加完档，界面上还看不到它：**Web 端没有难度按钮，难度档是 Pitch 模块排序关卡的属性**。关卡表在 `apps/web/src/course/curriculum.ts`，`rankLevel(id, noteCount, tier)` 把关卡 id、音数与档位捆在一起——把它插进 `pitch` 模块的 `levels` 数组，这一档就在课程里有了位置：
 
 ```ts
 rankLevel('order4TwoOctaves', 4, 'two-octaves'),

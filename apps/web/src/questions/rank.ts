@@ -18,8 +18,8 @@ import {
   spanOf,
   type RankSequence,
 } from '@yuegan/core';
-import type { RankLevel } from '../curriculum';
-import { midiFromPitch, midiName } from '../theory';
+import type { RankLevel } from '../course/curriculum';
+import { midiFromPitch, midiName } from '../i18n/domain-labels';
 import type { GenerateContext, RankQuestion } from './types';
 
 const generator = createExerciseGenerator(createMathRandomSource());

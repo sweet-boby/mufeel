@@ -18,9 +18,9 @@ import {
   type Judgment,
   type RankSequence,
 } from '@yuegan/core';
-import { MODULES, moduleById } from '../domain/curriculum';
-import { generate, resetPickState, type Question } from '../domain/questions';
-import type { QuestionResult } from '../domain/questions/types';
+import { MODULES, moduleById } from '../course/curriculum';
+import { generate, resetPickState, type Question } from '../questions';
+import type { QuestionResult } from '../questions/types';
 import { PianoEngineAudioPlayer } from '../infrastructure/audio/core-audio-player';
 import { pianoEngine } from '../infrastructure/audio/piano-engine';
 import * as Progress from '../infrastructure/progress';
@@ -46,6 +46,13 @@ interface SessionState {
   correctCount: number;
   dailyDone: number;
   overlay: 'none' | 'level' | 'daily';
+  /**
+   * 这一答完成了本关，但庆祝浮层还没弹出来。
+   *
+   * 排序题走这条：它的反馈（真实顺序、逐音对照）是这道题最该看的东西，
+   * 不该被浮层直接盖住；等用户点「看结果」再弹。
+   */
+  pendingCelebration: boolean;
   /** 排序题的作答草稿（core 的 AnswerDraft）。 */
   rankDraft: readonly (number | null)[];
   /** 主动重听用掉几次。 */
@@ -67,6 +74,7 @@ type Action =
   | { type: 'melody-pick'; notes: readonly number[] }
   | { type: 'rank-assign'; noteIndex: number; rank: number }
   | { type: 'overlay'; value: SessionState['overlay'] }
+  | { type: 'celebrate' }
   | { type: 'daily-done' };
 
 const initialState: SessionState = {
@@ -79,6 +87,7 @@ const initialState: SessionState = {
   correctCount: 0,
   dailyDone: 0,
   overlay: 'none',
+  pendingCelebration: false,
   rankDraft: [],
   replays: 0,
   everPlayed: false,
@@ -119,7 +128,10 @@ function reducer(state: SessionState, action: Action): SessionState {
     case 'rank-assign':
       // 在 reducer 里基于**最新**草稿计算：连点两个格子时，第二次不会再拿渲染期的旧草稿做基准。
       return { ...state, rankDraft: assignRank(state.rankDraft, action.noteIndex, action.rank) };
-    case 'answered':
+    case 'answered': {
+      // 排序题的反馈信息量最大（真实顺序 + 逐音你填/正确/真实音高），
+      // 所以本关达成也不立刻盖浮层，改成等用户点「看结果」。
+      const deferCelebration = action.justCompleted && state.q?.kind === 'rank';
       return {
         ...state,
         answered: true,
@@ -128,8 +140,12 @@ function reducer(state: SessionState, action: Action): SessionState {
         answeredCount: state.answeredCount + 1,
         correctCount: state.correctCount + (action.result.correct ? 1 : 0),
         dailyDone: state.dailyDone + 1,
-        overlay: action.justCompleted ? 'level' : state.overlay,
+        pendingCelebration: deferCelebration,
+        overlay: action.justCompleted && !deferCelebration ? 'level' : state.overlay,
       };
+    }
+    case 'celebrate':
+      return { ...state, overlay: 'level', pendingCelebration: false };
     case 'daily-done':
       return { ...state, overlay: 'daily' };
     case 'overlay':
@@ -419,9 +435,14 @@ export function useSession(cfg: SessionConfig): Session {
 
   const next = useCallback(() => {
     clearAuto();
+    // 排序题把庆祝留到这一刻：用户看完反馈点「看结果」，才弹关卡完成浮层。
+    if (state.pendingCelebration) {
+      dispatch({ type: 'celebrate' });
+      return;
+    }
     dispatch({ type: 'overlay', value: 'none' });
     nextQuestion();
-  }, [clearAuto, nextQuestion]);
+  }, [clearAuto, nextQuestion, state.pendingCelebration]);
 
   const keepPracticing = useCallback(() => {
     clearAuto();
@@ -434,6 +455,9 @@ export function useSession(cfg: SessionConfig): Session {
       state.answered &&
       state.overlay === 'none' &&
       state.result?.correct === true &&
+      // 排序题不自动走：它的反馈要读，读多久由用户决定（设置里的「自动下一题」对其它题型照常生效）
+      state.q?.kind !== 'rank' &&
+      !state.pendingCelebration &&
       Progress.getState().settings.autoAdvance
     ) {
       autoTimer.current = window.setTimeout(() => {
@@ -443,7 +467,7 @@ export function useSession(cfg: SessionConfig): Session {
       return clearAuto;
     }
     return undefined;
-  }, [clearAuto, nextQuestion, state.answered, state.overlay, state.result]);
+  }, [clearAuto, nextQuestion, state.answered, state.overlay, state.pendingCelebration, state.q, state.result]);
 
   useEffect(() => () => clearAuto(), [clearAuto]);
 

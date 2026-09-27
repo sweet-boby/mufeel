@@ -3,8 +3,9 @@
  */
 
 import type { JSX } from 'react';
-import { moduleById, type LevelDef } from '../../domain/curriculum';
-import { CHORDS, DEGREES, INTERVALS, SCALES } from '../../domain/theory';
+import { moduleById, type LevelDef } from '../../course/curriculum';
+import { CHORDS, DEGREES, INTERVALS } from '@yuegan/core';
+import { scaleNameKey } from '../../i18n/domain-labels';
 import { useT } from '../../i18n';
 import * as Progress from '../../infrastructure/progress';
 import { Ring, TopBar, formatPct, moduleColor } from '../components/Chrome';
@@ -34,7 +35,7 @@ export function ModuleScreen({ moduleId }: { moduleId: string }): JSX.Element {
       case 'chords':
         return CHORDS[id]?.short ?? id;
       case 'scales':
-        return t(SCALES[id]?.nameKey ?? id);
+        return t(scaleNameKey(id));
       case 'degrees':
         return Progress.getState().settings.degreeLabels === 'number'
           ? (DEGREES[id]?.number ?? id)

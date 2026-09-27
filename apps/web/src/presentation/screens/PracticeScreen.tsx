@@ -13,9 +13,9 @@
 
 import { useEffect, useRef, type JSX, type RefObject } from 'react';
 import { intervalBetween } from '@yuegan/core';
-import { moduleById } from '../../domain/curriculum';
-import type { RankQuestion } from '../../domain/questions/types';
-import { midiName } from '../../domain/theory';
+import { moduleById } from '../../course/curriculum';
+import type { RankQuestion } from '../../questions/types';
+import { midiName } from '../../i18n/domain-labels';
 import { useT } from '../../i18n';
 import * as Progress from '../../infrastructure/progress';
 import { pianoEngine } from '../../infrastructure/audio/piano-engine';
@@ -86,6 +86,7 @@ function SessionView({ cfg, title, subtitle, color, backTo }: SessionViewProps):
   const session = useSession(cfg);
   const { state, question: q } = session;
   const pianoRef = useRef<PianoHandle>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
   const answered = state.answered;
   const result = state.result;
@@ -147,6 +148,33 @@ function SessionView({ cfg, title, subtitle, color, backTo }: SessionViewProps):
     document.addEventListener('keydown', onKeydown);
     return () => document.removeEventListener('keydown', onKeydown);
   }, [answered, q, session, state.everPlayed, state.overlay, state.rankDraft]);
+
+  /**
+   * 答完题后把操作区滚进视野。
+   *
+   * 排序题与旋律题的作答区很高（n 列档位梯 / 一个键盘），反馈一出现，「下一题」就被挤到首屏之外——
+   * 用户得自己往下滚才能继续，看起来就像「答完没反应」。这里只在确实超出视野时滚最少的一段，
+   * 并留出 ACTION_MARGIN 的余量，别让按钮贴着屏幕底边。
+   */
+  useEffect(() => {
+    if (!answered) {
+      return;
+    }
+    const target = actionsRef.current;
+    if (target === null) {
+      return;
+    }
+    const ACTION_MARGIN = 16;
+    const rect = target.getBoundingClientRect();
+    const belowBy = rect.bottom + ACTION_MARGIN - window.innerHeight;
+    const aboveBy = rect.top - ACTION_MARGIN;
+    const delta = belowBy > 0 ? belowBy : aboveBy < 0 ? aboveBy : 0;
+    if (delta === 0) {
+      return;
+    }
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollBy({ top: delta, behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [answered]);
 
   // ── 还没开始：先让用户点一下（同时解锁浏览器音频） ─────────────────────────
   if (!session.started) {
@@ -254,10 +282,10 @@ function SessionView({ cfg, title, subtitle, color, backTo }: SessionViewProps):
           ) : null}
         </div>
 
-        <div className="s-actions">
+        <div className="s-actions" ref={actionsRef}>
           {answered && state.overlay === 'none' ? (
             <button type="button" className="btn primary" onClick={session.next}>
-              {t('practice.next')} →
+              {state.pendingCelebration ? t('practice.seeResult') : t('practice.next')} →
             </button>
           ) : null}
         </div>

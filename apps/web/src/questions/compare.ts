@@ -5,8 +5,8 @@
  * 是排序题的入门台阶——排序题要求同时握住 n 个音的相对位置。
  */
 
-import type { CompareLevel, ModuleDef } from '../curriculum';
-import { randInt } from '../theory';
+import type { CompareLevel, ModuleDef } from '../course/curriculum';
+import { randInt } from './random';
 import type { ChoiceQuestion, GenerateContext } from './types';
 import { pickWeighted, playFresh } from './shared';
 

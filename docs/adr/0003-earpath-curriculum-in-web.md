@@ -24,14 +24,14 @@
 ## 决定
 
 1. **课程壳住在 `apps/web`，不进 core。** 模块、关卡、解锁规则、关卡完成口径（最近 window 题里对 need 题）、
-   技能项权重、连续天数与统计，全部是产品层面的概念，放在 `apps/web/src/domain/curriculum.ts`
+   技能项权重、连续天数与统计，全部是产品层面的概念，放在 `apps/web/src/course/curriculum.ts`
    与 `apps/web/src/infrastructure/progress.ts`。core 里不出现「模块」「关卡」这类词。
 
 2. **排序题的规则一行都不复制。** Pitch 模块第 5–10 关（`kind: 'rank'`）的出题、正确答案与判分
    仍然只来自 core：`createDrillSpecForTier`（音数 + 难度档 → 音域 + 跨度规则）、
    `createExerciseGenerator`（出题）、`correctRanks`（唯一正确答案）、`createRankOrderJudge`（判分）。
    界面的档位互斥与「能不能提交」也走 core 的 `assignRank` / `isDraftSubmittable`。
-   `apps/web/src/domain/questions/rank.ts` 只做翻译：把 core 的音高换成播放事件与音名。
+   `apps/web/src/questions/rank.ts` 只做翻译：把 core 的音高换成播放事件与音名。
 
 3. **Web 端不再装配 `DrillRunner` 与 `buildDrillViewState`。** 练习会话由
    `apps/web/src/presentation/useSession.ts` 的一个 reducer 驱动：它沿用 earpath 的节奏

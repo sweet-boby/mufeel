@@ -6,7 +6,8 @@
 领域核心与平台实现分离，以后要出安卓端时复用 `packages/core`。
 
 先读 [CONTEXT.md](CONTEXT.md)（术语的唯一定义处）与 [docs/adr/](docs/adr/0001-domain-core-separated-from-platform.md)
-（架构决定：0001 领域核心分离、0002 原生 Web Audio、0003 课程壳与排序题的分工）；命令与目录见 [README.md](README.md)。
+（架构决定：0001 领域核心分离、0002 原生 Web Audio、0003 课程壳与排序题的分工、
+0004 音乐内容进 core 而显示名留平台）；命令与目录见 [README.md](README.md)。
 
 ## 平台的边界（这是本项目唯一的硬约束）
 
@@ -15,11 +16,15 @@
   `pnpm test:docs` 会机械校验这一条（含导入与全局对象两种形态）。
 - **排序题的规则只有一份**：出题在 `packages/core/src/domain/services/exercise-generator.ts`，
   判分在 `packages/core/src/domain/services/judge.ts`。Web 端只调用它们，不复制第二份。
-  `apps/web/src/domain/questions/rank.ts` 是适配层，只做「音高 → 播放事件 / 音名」的翻译，不做音乐判断。
+  `apps/web/src/questions/rank.ts` 是适配层，只做「音高 → 播放事件 / 音名」的翻译，不做音乐判断。
+- **音乐事实只在 core，显示名只在平台**（ADR 0004）：有哪些音程/和弦/音阶/音级、各自的半音结构、
+  以及 `voiceNumeral`（声部安排）与旋律的出题规则都住在 `packages/core/src/domain/content/` 与
+  `domain/services/`；名字、参考曲目、提示文案住在 `apps/web/src/i18n/`。
+  加一条内容要动两处，`apps/web/src/i18n/i18n.test.ts` 会比对两边的 id 集合。
 - **界面不许自己推算业务规则。** 哪些档位被占用（`assignRank`）、能不能提交（`isDraftSubmittable`）、
   这一题对不对（`createRankOrderJudge`）、正确排序是什么（`correctRanks`）全部来自 core。
   课程层面的规则（一关要连对几题、技能项权重、每日混合多少题）属于产品，住在
-  `apps/web/src/domain/curriculum.ts` 与 `apps/web/src/infrastructure/progress.ts`——这两类问题不要互相串门。
+  `apps/web/src/course/curriculum.ts` 与 `apps/web/src/infrastructure/progress.ts`——这两类问题不要互相串门。
 - **界面文案一律走 `t()`。** 组件与生成器里不许出现硬编码的中文或英文句子；
   `apps/web/src/i18n/zh.ts` 与 `en.ts` 的 key 必须完全一致，源码里用到的 key 必须存在，
   这两条由 `apps/web/src/i18n/i18n.test.ts` 强制（`pnpm test` 会跑）。
@@ -40,13 +45,16 @@
 
 ## 代码住在哪
 
-- **课程的形状**：`apps/web/src/domain/curriculum.ts`（模块、关卡、解锁路径、每关练什么）。
-- **题怎么出**：`apps/web/src/domain/questions/`。四个题型（`choice` / `sequence` / `melody` / `rank`）的协议在
+- **课程的形状**：`apps/web/src/course/curriculum.ts`（模块、关卡、解锁路径、每关练什么）。
+- **题怎么出**：`apps/web/src/questions/`。四个题型（`choice` / `sequence` / `melody` / `rank`）的协议在
   `types.ts`，按模块派发在 `index.ts`；`rank.ts` 是排序题接 core 的适配层。
 - **练习怎么推进**：`apps/web/src/presentation/useSession.ts`（reducer 状态机：出题 → 播放 → 作答 → 判分 → 下一题）。
 - **界面**：`apps/web/src/presentation/screens/`、`apps/web/src/presentation/components/`；页面路由在 `apps/web/src/app/App.tsx`。
-- **乐理数据**：`apps/web/src/domain/theory.ts`（音程/和弦/音阶/音级的半音结构，名字存成 i18n key）。
-- **播放**：`apps/web/src/infrastructure/audio/piano-engine.ts`（全站唯一的发声通道）与 `events.ts`（事件构造器）。
+- **音乐内容（事实与算法）**：`packages/core/src/domain/content/`（音程/和弦/音阶/音级/级数的半音结构）
+  与 `packages/core/src/domain/services/`（`voicing.ts` 声部安排、`melody.ts` 旋律出题规则）。
+- **显示名**：`apps/web/src/i18n/domain-labels.ts`（领域 id → 文案 key、参考曲目、音名与 MIDI 换算）。
+- **播放**：`apps/web/src/infrastructure/audio/piano-engine.ts`（全站唯一的发声通道，碰 Web Audio）；
+  事件构造器在 `apps/web/src/questions/events.ts`（纯数据，不碰浏览器 API，所以放在 questions 层）。
 - **进度与设置**：`apps/web/src/infrastructure/progress.ts`（localStorage 键 `yuegan.progress.v1`）。
 
 ## 改动时的规矩
@@ -56,7 +64,8 @@
 - 新增术语先查 CONTEXT.md。同一个概念出现第二个说法时，改回正名，而不是让两种说法并存。
 - 规则变化必须带测试。`packages/core` 的测试是行为测试（出题不变量、判分口径、流程与状态不变量），
   不是实现快照——改规则时改对应的行为断言，并说明为什么。加一门语言、改 i18n key 之后必须跑 `pnpm test`。
-- 出题这类「随机但必须满足性质」的逻辑，用穷举式性质测试（现有做法是 200 局 × 每局 10 题），不要只用固定随机源的单个用例。
+- 出题这类「随机但必须满足性质」的逻辑，用穷举式性质测试（现有做法是 200 局 × 每局 10 题、
+  200 条旋律），不要只用固定随机源的单个用例。
 - 播放器与仓储这类平台实现，测试里用桩替换（`packages/core/tests/drill-runner.test.ts` 里的 `FakeAudioPlayer`
   与确定性 LCG 随机源是模板）。
 - 移植过来的文件保留出处注释（样式表、课程与界面的顶部注释里都写了来源与许可），不要删。
@@ -86,6 +95,8 @@ pnpm dev         # http://localhost:5173
 - 不要在 `packages/core` 里为了图快 import 平台能力，也不要为"以后可能需要"预先抽象——扩展点已经有明确位置
   （端口 / 判分器 / 练习规格）。
 - **不要把课程表塞进 core**：模块、关卡、解锁、关卡完成口径都是产品概念（理由见 ADR 0003）。
+- **不要把音乐事实留在 web**：新音程/新和弦/新音阶要先加进 `packages/core/src/domain/content/`，
+  再在 `apps/web/src/i18n/domain-labels.ts` 补名字；反过来也不要往 core 里塞面向用户的文案。
 - **不要在界面或生成器里写死中英文文案**，也不要只改一份字典：`pnpm test` 的 i18n 门禁会红。
 - **不要在答题过程中显示音高或音名**，也不要在排序题的列上标音名刻度：那会让用户用读刻度代替听。
   真实音高只在反馈阶段出现。

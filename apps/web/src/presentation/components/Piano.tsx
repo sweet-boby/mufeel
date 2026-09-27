@@ -7,7 +7,7 @@
  */
 
 import { forwardRef, useImperativeHandle, useRef, useState, type JSX } from 'react';
-import { midiName } from '../../domain/theory';
+import { midiName } from '../../i18n/domain-labels';
 import { useT } from '../../i18n';
 
 const isBlack = (midi: number): boolean => [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);

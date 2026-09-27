@@ -7,8 +7,8 @@
  */
 
 import type { DrillSpec, Exercise, Judgment, PlaybackTiming, RankSequence, Semitones } from '@yuegan/core';
-import type { TFunc } from '../../i18n/types';
-import type { PlaybackEvent } from '../playback';
+import type { TFunc } from '../i18n/types';
+import type { PlaybackEvent } from './playback';
 
 /** 一个技能项的一次对错，交给存档层累计（薄弱项据此加权）。 */
 export interface ItemResult {

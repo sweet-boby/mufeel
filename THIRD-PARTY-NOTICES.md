@@ -9,12 +9,14 @@
 [abeage1/earpath-app](https://github.com/abeage1/earpath-app)。对应文件：
 
 - `apps/web/src/styles/global.css`（顶部注明出处，末尾的排序题样式为本仓库新增）
-- `apps/web/src/domain/curriculum.ts`
-- `apps/web/src/domain/theory.ts`
-- `apps/web/src/domain/questions/`（`rank.ts` 为本仓库新增）
+- `apps/web/src/course/curriculum.ts`
+- `apps/web/src/questions/`（`rank.ts` 为本仓库新增）
 - `apps/web/src/infrastructure/progress.ts`
 - `apps/web/src/presentation/`（排序题作答 UI 与中英双语为本仓库新增）
 - `apps/web/src/i18n/en.ts` 中的英文文案
+- `packages/core/src/domain/content/`（音程/和弦/音阶/音级/级数的半音结构，由 earpath 的 `js/theory.js` 整理而来）
+- `packages/core/src/domain/services/voicing.ts`、`melody.ts`（声部安排与旋律出题规则，同上）
+- `apps/web/src/i18n/domain-labels.ts`（同上，名字与参考曲目）
 
 ```
 MIT License

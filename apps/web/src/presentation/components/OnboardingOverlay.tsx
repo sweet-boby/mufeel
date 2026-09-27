@@ -6,7 +6,7 @@
  */
 
 import type { JSX } from 'react';
-import { ONBOARDING_PATHS, type OnboardingPathId } from '../../domain/curriculum';
+import { ONBOARDING_PATHS, type OnboardingPathId } from '../../course/curriculum';
 import { useT } from '../../i18n';
 import * as Progress from '../../infrastructure/progress';
 

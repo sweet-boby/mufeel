@@ -8,7 +8,7 @@
  * 音高坐标：本引擎收 MIDI 号（C4 = 60）。core 的半音坐标（C4 = 0）在适配器里换算。
  */
 
-import { eventsDuration, type PlaybackEvent } from '../../domain/playback';
+import { eventsDuration, type PlaybackEvent } from '../../questions/playback';
 import { loadPianoSamples, type PianoSamples } from './piano-samples';
 
 export class PianoEngine {

@@ -5,7 +5,7 @@
  * 而不是自己调度振荡器。节奏写在这里，题型只管调用。
  */
 
-import type { PlaybackEvent } from '../../domain/playback';
+import type { PlaybackEvent } from './playback';
 
 /** dir: 'a' 上行 / 'd' 下行 / 'h' 同时发声。rootMidi 是第一个音。 */
 export function intervalEvents(

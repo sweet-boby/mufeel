@@ -10,7 +10,7 @@
 
 难度档（`DifficultyTier`）是「音域 + 跨度规则 + core 侧显示名」的一份定义：`DIFFICULTY_TIERS` 的每一项把这三样捆在一起，`DIFFICULTY_TIER_ORDER` 给出遍历顺序，`createDrillSpecForTier(tier, noteCount)` 再把档位与音数拼成 `DrillSpec`。加一档 = 扩展 `DifficultyTier` 联合类型、往 `DIFFICULTY_TIERS` 加一项、把它排进 `DIFFICULTY_TIER_ORDER`；core 侧到此就能出这一档的题。
 
-**但界面上还看不到它**：Web 端的难度档不是首页按钮，而是 Pitch 模块排序关卡的属性。要让它露面，得在 `apps/web/src/domain/curriculum.ts` 里用 `rankLevel(id, noteCount, tier)` 把它安排到某一关，并补上两份字典的 `tier.*` 显示名（关卡名与提示走 i18n，见文末表格）。分步走法见[给练习加一个难度档](cookbook/adding-a-difficulty-tier.md)。音数、题数、重听上限仍是 `DrillSpec` 的独立字段，音数的合法范围由 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 决定。
+**但界面上还看不到它**：Web 端的难度档不是首页按钮，而是 Pitch 模块排序关卡的属性。要让它露面，得在 `apps/web/src/course/curriculum.ts` 里用 `rankLevel(id, noteCount, tier)` 把它安排到某一关，并补上两份字典的 `tier.*` 显示名（关卡名与提示走 i18n，见文末表格）。分步走法见[给练习加一个难度档](cookbook/adding-a-difficulty-tier.md)。音数、题数、重听上限仍是 `DrillSpec` 的独立字段，音数的合法范围由 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 决定。
 
 要一种新的跨度或音程约束（例如三度内、任意两音至少隔一个八度）才是改 core 的出题侧：`PitchSpanPattern` 加枚举值、给出这条规则的上界或下界（`maxSpanOf` 或同类纯函数），再让 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows`（合法起点）与 `sampleIndices`（取哪几个半音）按新规则工作。答案是升序名次，这类改动不碰 `Answer`。两条路都不碰作答表示与判分：不变量 ①②③④ 不受影响，⑤ 无关。
 
@@ -29,9 +29,40 @@ export const spec: DrillSpec = createDrillSpecForTier('wide', 4, { exerciseCount
 export const label = describeDrillSpec(spec) // "4 个音 · 全音域"
 ```
 
+## 加一条音乐内容（新音程 / 新和弦 / 新音阶 / 新音级）
+
+音乐事实住在 core，面向用户的名字住在平台——这条分工见 [ADR 0004](adr/0004-music-content-lives-in-core.md)。
+所以加一条内容的完整走法是**两处**，只改一处不会被编译器拦住，靠 `apps/web/src/i18n/i18n.test.ts` 那条
+「core 的每一条内容都有名字」的断言兜底（它比对 core 内容表的 id 与平台名字映射的 id 集合，多一个少一个都红）。
+
+```ts
+// 1) 事实：packages/core/src/domain/content/scales.ts
+export const SCALES: Record<string, ScaleContent> = {
+  // …原有内容不动…
+  hungarian: { semitones: [0, 2, 3, 6, 7, 8, 11, 12] },   // 半音排列：首项 0、末项 12、严格递增
+}
+
+// 2) 名字：apps/web/src/i18n/domain-labels.ts
+export const SCALE_NAME_KEYS: Record<string, string> = {
+  // …原有内容不动…
+  hungarian: 'theory.scale.hungarian',
+}
+
+// 3) 两份字典：apps/web/src/i18n/zh.ts 与 en.ts
+//    'theory.scale.hungarian': '匈牙利小调' / 'Hungarian Minor'
+```
+
+然后把它排进某一关——`apps/web/src/course/curriculum.ts` 里对应模块的关卡 `items` 加这个 id 即可
+（关卡与解锁是课程，不住 core）。不需要动任何生成器：音阶题的选项、播放与判分都按 id 走。
+
+要守的性质分两层：**表本身**（半音排列的边界与单调性、级数引用的和弦真实存在）写在
+`packages/core/tests/theory-content.test.ts`；**出题行为**（200 局里都能出到、播放事件落在音域内）
+补在对应的题型测试或那张表的性质测试里。只断言「不抛错」是不够的——内容加错了往往表现为
+「界面永远出不到它」或「显示成 id 本身」。
+
 ## 换判分口径（部分得分、更严的方向判定）
 
-判分器是一个接口：`packages/core/src/domain/services/judge.ts` 的 `Judge` 只有 `judge(exercise, answer)`，范例实现是 `createRankOrderJudge()`；core 侧的注入点是 `DrillRunnerDependencies.judge`（`DrillRunner` 未注入时默认用它）。Web 端的排序题不走 `DrillRunner`：它在 `apps/web/src/domain/questions/rank.ts` 里直接构造 `createRankOrderJudge()`，换口径就换那一处调用——两个装配点各自独立，改一处不会自动影响另一处。
+判分器是一个接口：`packages/core/src/domain/services/judge.ts` 的 `Judge` 只有 `judge(exercise, answer)`，范例实现是 `createRankOrderJudge()`；core 侧的注入点是 `DrillRunnerDependencies.judge`（`DrillRunner` 未注入时默认用它）。Web 端的排序题不走 `DrillRunner`：它在 `apps/web/src/questions/rank.ts` 里直接构造 `createRankOrderJudge()`，换口径就换那一处调用——两个装配点各自独立，改一处不会自动影响另一处。
 
 判分结果的数据形状不变，装配处换成新实现即可（`new DrillRunner(spec, { audioPlayer, audioTiming: DEFAULT_PLAYBACK, judge: createNearMissJudge(1) })`），view state 的 `judgment` 明细与结算照旧工作，只是 `isCorrect` 的含义变了，要同步写进 [CONTEXT.md](../CONTEXT.md) 的「判分」；若新口径要求用户提交「音程是多少」「是哪个音级」这类作答，就不是换判分器，见最后一节。不变量 ①②③ 不受影响，④ 无关，⑤ 不变（反馈阶段本来就展示真实音高）。
 
@@ -60,7 +91,7 @@ export function createNearMissJudge(tolerance = 1): Judge {
 
 端口是 `AudioPlayer`（`packages/core/src/domain/ports/audio-player.ts`）：`isReady` / `load(onProgress?)` / `playSequence(pitches, timing?)` / `stop`；core 侧的注入点是 `DrillRunnerDependencies.audioPlayer`，Web 端的实现是 `apps/web/src/infrastructure/audio/core-audio-player.ts` 的 `PianoEngineAudioPlayer`——它把 core 的半音坐标换算成 MIDI，再交给全站共用的 `apps/web/src/infrastructure/audio/piano-engine.ts` 发声（挑哪个采样、变调多少仍由 core 的 `assignSample` 决定）。
 
-Web 上有两条播放路径，分工是清楚的：**排序题走这个端口**——`apps/web/src/domain/questions/rank.ts` 的 `play` 调 `GenerateContext.playPitches(exercise.pitches)`，时序由 core 的 `DEFAULT_PLAYBACK` 给出，装配点在 `apps/web/src/presentation/useSession.ts`（`new PianoEngineAudioPlayer()`）；其余题型（音程、和弦、音阶、音级、和弦进行、旋律）直接调 `PianoEngine.playEvents(events)`，事件由 `apps/web/src/infrastructure/audio/events.ts` 的构造器算好——和弦、琶音、终止式这类材料需要精确到毫秒的时间轴，用事件表达更直接。换音色两处都要换，因为发声通道只有 `piano-engine.ts` 一个。
+Web 上有两条播放路径，分工是清楚的：**排序题走这个端口**——`apps/web/src/questions/rank.ts` 的 `play` 调 `GenerateContext.playPitches(exercise.pitches)`，时序由 core 的 `DEFAULT_PLAYBACK` 给出，装配点在 `apps/web/src/presentation/useSession.ts`（`new PianoEngineAudioPlayer()`）；其余题型（音程、和弦、音阶、音级、和弦进行、旋律）直接调 `PianoEngine.playEvents(events)`，事件由 `apps/web/src/questions/events.ts` 的构造器算好——和弦、琶音、终止式这类材料需要精确到毫秒的时间轴，用事件表达更直接。换音色两处都要换，因为发声通道只有 `piano-engine.ts` 一个。
 
 换音色库、加混响、输出 MIDI、在 Node 里跑无声测试都实现同一个端口；端口只按给定的音高序列与 `PlaybackTiming` 发声，重听次数、什么时候停、播哪几个音在 core 侧由 `DrillRunner` 决定、在 Web 侧由 `apps/web/src/presentation/useSession.ts` 与题目对象决定，播放器两种情况都不该自己改序列或时序。不变量 ①②③ 与声音无关；④ 要求播放器原样播放应用层给的那组音高，自己缓存或重新排序会破坏「一题之内重听听到同一组音」；⑤ 无关。
 
@@ -121,11 +152,11 @@ export const beyondTop = assignSample(covered.max + 2)          // 越界的音�
 
 界面住在 `apps/web/src/presentation/`，页面路由在 `apps/web/src/app/App.tsx`（hash 路由：`#/` 首页、`#/module/:id` 模块页、`#/practice/:id/:level` 练习页、`#/daily` 每日混合、`#/stats`、`#/settings`、`#/guide`）。
 
-一道题在界面上长什么样，由题型协议决定（`apps/web/src/domain/questions/types.ts`）：`choice`（选项 + `grade(answeredId)`）、`sequence`（逐槽填级数序列）、`melody`（在钢琴上按出来）、`rank`（排序题：一列一个音，每列 n 个档位）。生成器都在 `apps/web/src/domain/questions/` 下，由 `index.ts` 按**关卡**的 kind 派发（Pitch 模块内部同时有「比高低」与排序两种关卡）。生成器负责把题目该有的一切算好并闭包住——播放事件、正确答案、判分函数——界面只按协议渲染、把用户操作交回去，组件里不出现任何音乐判断。
+一道题在界面上长什么样，由题型协议决定（`apps/web/src/questions/types.ts`）：`choice`（选项 + `grade(answeredId)`）、`sequence`（逐槽填级数序列）、`melody`（在钢琴上按出来）、`rank`（排序题：一列一个音，每列 n 个档位）。生成器都在 `apps/web/src/questions/` 下，由 `index.ts` 按**关卡**的 kind 派发（Pitch 模块内部同时有「比高低」与排序两种关卡）。生成器负责把题目该有的一切算好并闭包住——播放事件、正确答案、判分函数——界面只按协议渲染、把用户操作交回去，组件里不出现任何音乐判断。
 
 会话循环由 `apps/web/src/presentation/useSession.ts` 的 reducer 驱动：进练习页先显示「点一下开始」，用户点击后才加载采样（28 个 mp3，约 1.8 MB），加载完自动播第一题；之后是出题 → 播放 → 作答 → 判分 → 下一题，`assign` / `submitRank` / `choose` / `fillSlot` / `playMelodyNote` 各自转发到当前题目的协议方法。生成器拿到的 `GenerateContext` 有两条播放通道：`play(events)` 直接给采样引擎事件（earpath 侧的题型），`playPitches(pitches, timing?)` 走 core 的 `AudioPlayer` 端口（排序题），见上一节。加页面、改交互、加动画、改文案都在这一层；一旦组件里开始写「这个档位还能不能选」的推导就已经越界。
 
-排序题里，界面不推算任何规则：档位互斥与「被占了怎么办」来自 core 的 `assignRank`，能不能提交来自 `isDraftSubmittable`，规格与出题来自 `createDrillSpecForTier` / `createExerciseGenerator`，判分来自 `createRankOrderJudge`（`apps/web/src/domain/questions/rank.ts` 只做「调 core、把音高交给播放端口、把判分结果接到界面协议上」的翻译）。而「一关要连对几题、模块怎么解锁、下一题偏向哪个薄弱项」是 app 层的课程概念，住在 `apps/web/src/domain/curriculum.ts` 与 `apps/web/src/infrastructure/progress.ts`——这两类问题不要互相串门。
+排序题里，界面不推算任何规则：档位互斥与「被占了怎么办」来自 core 的 `assignRank`，能不能提交来自 `isDraftSubmittable`，规格与出题来自 `createDrillSpecForTier` / `createExerciseGenerator`，判分来自 `createRankOrderJudge`（`apps/web/src/questions/rank.ts` 只做「调 core、把音高交给播放端口、把判分结果接到界面协议上」的翻译）。而「一关要连对几题、模块怎么解锁、下一题偏向哪个薄弱项」是 app 层的课程概念，住在 `apps/web/src/course/curriculum.ts` 与 `apps/web/src/infrastructure/progress.ts`——这两类问题不要互相串门。
 
 不变量 ⑤ 由界面守住：答题阶段不渲染真实音高与音名（排序题的音名只在反馈阶段用），也不给档位列标音名刻度；排查时用 `window.__yueganSession.truth()`（仅 DEV 构建暴露）读当前排序题的真实音高与正确答案，而不是从 DOM 反推。①②③ 在 core 里保证；④ 由「题目闭包住它自己那组音高」加上播放器原样播放共同保证。
 
@@ -173,14 +204,15 @@ export const sameAnswer: boolean = low.join(',') === high.join(',')
 
 | 想加的东西 | 挂在哪 | 不变量 |
 | --- | --- | --- |
-| 新难度档（音域 + 跨度规则 + core 侧显示名） | `DifficultyTier` 加字面量，再往 `DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER` 加一项（`packages/core/src/domain/entities/drill-spec.ts`）；再在 `apps/web/src/domain/curriculum.ts` 里用 `rankLevel(id, noteCount, tier)` 把它安排到 Pitch 模块的一关，并补两份字典的 `tier.*` | 局部参数（①②③④ 不动） |
-| 加一个模块 / 一个关卡 | 模块与关卡加在 `apps/web/src/domain/curriculum.ts`（关卡自带 `kind` 与 `nameKey` / `hintKey`），题型生成器加到 `apps/web/src/domain/questions/`（新题型要在 `types.ts` 立协议、在 `index.ts` 派发），文案补进 `apps/web/src/i18n/zh.ts` 与 `apps/web/src/i18n/en.ts` 两份字典 | 局部参数 + 新增实现（都不动；课程规则不归 core 管） |
+| 新难度档（音域 + 跨度规则 + core 侧显示名） | `DifficultyTier` 加字面量，再往 `DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER` 加一项（`packages/core/src/domain/entities/drill-spec.ts`）；再在 `apps/web/src/course/curriculum.ts` 里用 `rankLevel(id, noteCount, tier)` 把它安排到 Pitch 模块的一关，并补两份字典的 `tier.*` | 局部参数（①②③④ 不动） |
+| 加一条音乐内容（新音程 / 和弦 / 音阶 / 音级） | 事实加进 `packages/core/src/domain/content/`，名字加进 `apps/web/src/i18n/domain-labels.ts` 与两份字典，再排进 `apps/web/src/course/curriculum.ts` 的关卡 | 局部参数 + 数据（①②③④ 不动；`i18n.test.ts` 会比对两边的 id 集合） |
+| 加一个模块 / 一个关卡 | 模块与关卡加在 `apps/web/src/course/curriculum.ts`（关卡自带 `kind` 与 `nameKey` / `hintKey`），题型生成器加到 `apps/web/src/questions/`（新题型要在 `types.ts` 立协议、在 `index.ts` 派发），文案补进 `apps/web/src/i18n/zh.ts` 与 `apps/web/src/i18n/en.ts` 两份字典 | 局部参数 + 新增实现（都不动；课程规则不归 core 管） |
 | 新跨度规则、音程约束或出题分布（三度内、任意两音隔一个八度、限定音阶） | `PitchSpanPattern` 加枚举值并给出上界/下界（`maxSpanOf` 或同类纯函数），再改 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices` | 局部参数（①②③④ 不动；出题的性质测试要跟着改断言） |
-| 部分得分 / 更严的方向判定 | 新 `Judge` 实现；core 侧注入 `DrillRunnerDependencies.judge`，Web 端换 `apps/web/src/domain/questions/rank.ts` 里构造判分器的那一处 | 新增实现（不动；`Judgment.isCorrect` 的含义变了） |
+| 部分得分 / 更严的方向判定 | 新 `Judge` 实现；core 侧注入 `DrillRunnerDependencies.judge`，Web 端换 `apps/web/src/questions/rank.ts` 里构造判分器的那一处 | 新增实现（不动；`Judgment.isCorrect` 的含义变了） |
 | 音程判断（作答仍是档位） | 同上一行，另写 `Judge` | 新增实现（不动） |
 | 换音色 / 换播放方式 | 实现 `AudioPlayer`，core 侧注入 `DrillRunnerDependencies.audioPlayer`；Web 端排序题的播放就装配 `apps/web/src/infrastructure/audio/core-audio-player.ts`（`useSession.ts` 里 `new PianoEngineAudioPlayer()`，经 `playPitches` 交给题型），其余题型直接调 `PianoEngine.playEvents(events)`；发声通道都是 `apps/web/src/infrastructure/audio/piano-engine.ts` | 新增实现（不动；④ 要求原样播放给定的音高序列） |
 | 换记录存储（账号、服务端） | 实现 `DrillRecordRepository`，core 侧注入 `DrillRunnerDependencies.recordRepository`；Web 端不装配这个端口，进度走 `apps/web/src/infrastructure/progress.ts` | 新增实现（不动；要往记录里加字段才是动领域模型） |
 | 扩采样音域 / 换采样集 | 加 mp3 到 `apps/web/public/samples/piano/`，同步 `sample-map.ts` 的音名表，必要时调 `DEFAULT_RANGE` | 局部参数 + 数据（都不动；`packages/core/tests/sample-map.test.ts` 保证表与磁盘一致） |
-| 加界面 / 改交互 / 加页面 | `apps/web/src/presentation/`（会话循环 `useSession.ts`，页面在 `screens/`，路由在 `apps/web/src/app/App.tsx`），题目按 `apps/web/src/domain/questions/types.ts` 的题型协议渲染，文案一律走 `t()` | 新增实现（不动；⑤ 由界面守住） |
+| 加界面 / 改交互 / 加页面 | `apps/web/src/presentation/`（会话循环 `useSession.ts`，页面在 `screens/`，路由在 `apps/web/src/app/App.tsx`），题目按 `apps/web/src/questions/types.ts` 的题型协议渲染，文案一律走 `t()` | 新增实现（不动；⑤ 由界面守住） |
 | 安卓端 / Node 端 | 复用 `packages/core`，另写 `AudioPlayer` 与 `DrillRecordRepository` 适配器 + 界面 | 新增实现（都不动；判据是 `packages/core/src` 里没有浏览器 API） |
 | 绝对音高识别 / 参考音 / 音程作答表 | `Answer` 表示 + `Judge` + `packages/core/src/application/view-model.ts` 的选项集 | 动领域模型（② 失效，③ 与 ⑤ 重新定义） |

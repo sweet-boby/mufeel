@@ -3,8 +3,8 @@
  */
 
 import type { JSX } from 'react';
-import { MODULES } from '../../domain/curriculum';
-import { INTERVALS } from '../../domain/theory';
+import { MODULES } from '../../course/curriculum';
+import { INTERVAL_NAME_KEYS, INTERVAL_SONG_KEYS } from '../../i18n/domain-labels';
 import { useT } from '../../i18n';
 import { TopBar, moduleColor } from '../components/Chrome';
 import { UPSTREAM_NAME, UPSTREAM_URL } from '../../app/config';
@@ -12,17 +12,24 @@ import { UPSTREAM_NAME, UPSTREAM_URL } from '../../app/config';
 export function GuideScreen(): JSX.Element {
   const t = useT();
 
-  const songRows = Object.entries(INTERVALS)
-    .filter(([, interval]) => interval.songKeys?.asc !== undefined || interval.songKeys?.desc !== undefined)
-    .map(([id, interval]) => (
-      <tr key={id}>
-        <td>
-          <strong>{t(interval.nameKey)}</strong>
-        </td>
-        <td>{interval.songKeys?.asc === undefined ? '—' : t(interval.songKeys.asc)}</td>
-        <td>{interval.songKeys?.desc === undefined ? '—' : t(interval.songKeys.desc)}</td>
-      </tr>
-    ));
+  // 参考曲目表：内容 id 与名字都来自领域侧，这里只负责排版
+  const songRows = Object.keys(INTERVAL_NAME_KEYS)
+    .filter((id) => {
+      const song = INTERVAL_SONG_KEYS[id];
+      return song?.asc !== undefined || song?.desc !== undefined;
+    })
+    .map((id) => {
+      const song = INTERVAL_SONG_KEYS[id];
+      return (
+        <tr key={id}>
+          <td>
+            <strong>{t(INTERVAL_NAME_KEYS[id] as string)}</strong>
+          </td>
+          <td>{song?.asc === undefined ? '—' : t(song.asc)}</td>
+          <td>{song?.desc === undefined ? '—' : t(song.desc)}</td>
+        </tr>
+      );
+    });
 
   return (
     <div className="page guide">
