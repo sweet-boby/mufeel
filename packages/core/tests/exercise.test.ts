@@ -9,6 +9,7 @@ import {
   DEFAULT_RANGE,
   DEFAULT_REPLAY_LIMIT,
   describeDrillSpec,
+  DIFFICULTY_TIERS,
   DIFFICULTY_TIER_ORDER,
   MAX_NOTE_COUNT,
   maxSpanOf,
@@ -181,14 +182,19 @@ describe('难度档到规格的映射', () => {
     }
   });
 
-  it('三档的规格文案两两不同，音域不同的两档不会同名', () => {
+  it('规格文案由难度档自己的名字产出：按钮叫什么，练习页与结算页就写什么', () => {
     const labels = DIFFICULTY_TIER_ORDER.map((tier) =>
       describeDrillSpec(createDrillSpecForTier(tier, 3)),
     );
+    // 两两不同：否则历史记录里两局无法区分
     expect(new Set(labels).size).toBe(DIFFICULTY_TIER_ORDER.length);
-    // 不限制跨度的规格带上实际音域，否则中音区与整键盘两档会写成同一个名字
-    expect(labels[0]).toContain('C3–C5');
-    expect(labels[1]).toContain('C1–A7');
+    DIFFICULTY_TIER_ORDER.forEach((tier, index) => {
+      // 界面按钮的文案必须原样出现在规格文案里——曾经这里写出过
+      // 「首页叫中音区、练习页写全音域」这种同名两写的毛病
+      expect(labels[index]).toContain(DIFFICULTY_TIERS[tier].label);
+    });
+    expect(labels[0]).toBe('3 个音 · 中音区');
+    expect(labels[1]).toBe('3 个音 · 全音域');
     expect(labels[2]).toBe('3 个音 · 八度内');
   });
 

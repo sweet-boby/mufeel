@@ -28,7 +28,7 @@ packages/core/               平台无关的领域核心（@yuegan/core）：20 
   src/domain/config.ts       播放参数与默认音域
   src/application/           用例编排与 view state
   src/index.ts               包的公开导出
-  tests/                     4 个测试文件、46 个用例
+  tests/                     4 个测试文件、51 个用例
 apps/web/                    浏览器端（@yuegan/web）：React 界面 + 原生 Web Audio
   src/infrastructure/        采样加载、Web Audio 播放器、localStorage 仓储
   src/presentation/          首页 / 练习页 / 结果页与 React 接线
@@ -55,7 +55,7 @@ AGENTS.md                    面向 agent 的工作约定
 | `pnpm test` | `pnpm -r run test` | 两个包各跑 `vitest run`，`@yuegan/web` 带 `--passWithNoTests` |
 | `pnpm test:docs` | `node scripts/verify-docs.mjs` | 文档门禁：文档里的路径、`pnpm` 命令与相对链接必须有效 |
 
-实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 46 个用例，`apps/web` 没有测试文件；`pnpm typecheck` 两个包都通过；`pnpm build` 产出约 2.7 MB（`du` 磁盘占用），其中 28 个采样文件本身 1.8 MB，JS 主包 245 KB（gzip 76 KB）、CSS 8.2 KB（gzip 2.5 KB）。
+实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 51 个用例，`apps/web` 没有测试文件；`pnpm typecheck` 两个包都通过；`pnpm build` 产出约 2.7 MB（`du` 磁盘占用），其中 28 个采样文件本身 1.8 MB，JS 主包 245 KB（gzip 76 KB）、CSS 8.2 KB（gzip 2.5 KB）。
 
 ## 文档地图
 
@@ -76,9 +76,9 @@ AGENTS.md                    面向 agent 的工作约定
 
 ## 能力与边界
 
-每题弹 2～5 个音，音高在 C3–C5 内随机且互不相同，播放顺序打乱；每题给出与音数相同的滑块与档位，把每个滑块放到它该在的位置，数字越大 = 音越高，全部放对才算这题答对。
+每题弹 2～5 个音，音高在所选难度档的音域内随机且互不相同，播放顺序打乱；每题给出与音数相同的滑块与档位，把每个滑块放到它该在的位置，数字越大 = 音越高，全部放对才算这题答对。
 
-两种难度：`全音域`（整题跨度不限）与 `八度内`（整题跨度 ≤ 12 个半音）。一局 10 题，规格在开始前选定，一局之内不变。
+三档难度：`中音区`（C3–C5，跨度不限）、`全音域`（C1–A7，跨度不限）、`八度内`（C3–C5，整题跨度 ≤ 12 个半音）。`全音域`档把音均匀撒在 C1–A7 这 82 个音高里，题内音因此隔得远：2～5 个音的中位跨度 24～57 个半音，`中音区`档同一口径只有 7～18 个。一局 10 题，规格在开始前选定，一局之内不变。
 
 每题最多主动重听 3 次，首次自动播放不算重听。提交后立即给出对错与逐音对照（你填第几位 / 正确第几位 / 真实音高），并重放这道题的真实音频；结算页给出正确率与逐题明细。
 
@@ -90,7 +90,7 @@ AGENTS.md                    面向 agent 的工作约定
 
 | 想做的事 | 改哪里 |
 | --- | --- |
-| 加难度档（音数、音域、跨度上限、重听次数） | `packages/core/src/domain/entities/drill-spec.ts` 与 `packages/core/src/domain/services/exercise-generator.ts` |
+| 加难度档（音域 + 跨度规则一起定义） | `packages/core/src/domain/entities/drill-spec.ts` 的 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`，首页按钮自动出现；要新的跨度/音程约束才动 `packages/core/src/domain/services/exercise-generator.ts` |
 | 改判分口径（音程、音级、部分得分） | 另写一个 `Judge` 实现，替换 `packages/core/src/domain/services/judge.ts` 的注入 |
 | 换音色或换播放方式 | 实现 `packages/core/src/domain/ports/audio-player.ts` 的 `AudioPlayer` 端口（现有实现见 `apps/web/src/infrastructure/web-audio-piano-player.ts`） |
 | 换记录存储（账号、服务端） | 实现 `packages/core/src/domain/ports/drill-record-repository.ts` 的 `DrillRecordRepository` 端口 |
@@ -105,7 +105,7 @@ AGENTS.md                    面向 agent 的工作约定
 
 播放参数集中在 `packages/core/src/domain/config.ts`：每音 1200 ms、音间停 400 ms，播放器不写死节奏。
 
-钢琴采样每 3 个半音一个（C / D# / F# / A），覆盖 C1–A7（音高 -36…45，以 C4 = 0 计），中间的音取最近的采样变速变调补齐，最多 2 个半音；v1 的出题音域 C3–C5 内不超过 1 个半音。采样映射是 core 里的纯逻辑，播放器只负责执行，理由见 [ADR 0002](docs/adr/0002-native-web-audio-over-tonejs.md)。
+钢琴采样每 3 个半音一个（C / D# / F# / A），覆盖 C1–A7（音高 -36…45，以 C4 = 0 计），中间的音取最近的采样变速变调补齐，最多 2 个半音；练习用到的 C3–C5 与 C1–A7 内都不超过 1 个半音。采样映射是 core 里的纯逻辑，播放器只负责执行，理由见 [ADR 0002](docs/adr/0002-native-web-audio-over-tonejs.md)。
 
 开发期后门：浏览器控制台里 `window.__yueganRunner` 是当前的 `DrillRunner`（仅 DEV 构建暴露），`getState().forge` 是整局题库的真实音高与正确答案快照。
 

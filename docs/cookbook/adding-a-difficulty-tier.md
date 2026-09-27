@@ -74,7 +74,7 @@ export const DIFFICULTY_TIER_ORDER: readonly DifficultyTier[] = [
 ];
 ```
 
-`DIFFICULTY_TIER_ORDER` 决定按钮的出现顺序，`DIFFICULTY_TIERS` 提供文案与提示；两个都是 `Record` / 数组字面量，漏写一项同样是类型错误。
+`DIFFICULTY_TIER_ORDER` 决定按钮的出现顺序，`DIFFICULTY_TIERS` 提供名字与提示（都是 `Record` / 数组字面量，漏写一项就是类型错误）。`createDrillSpecForTier` 会把这里的 `label` 抄进规格的 `label` 字段，练习页顶部与结算页显示的就是它——规格自带名字，而不是回头从音域与跨度规则反推，因为 `standard` 与 `wide` 的跨度规则相同、只有音域不同，反推出来的名字必然和按钮名对不上。
 
 ## 4. 界面不需要改
 
@@ -87,7 +87,7 @@ export const DIFFICULTY_TIER_ORDER: readonly DifficultyTier[] = [
 文件：`packages/core/tests/exercise.test.ts`。三处：
 
 1. **难度档映射**：`describe('难度档到规格的映射')` 里那条"每一档的音域与跨度规则"加上新档，断言 `createDrillSpecForTier('two-octaves', 3).spanPattern === 'two-octaves'` 且音域是 `DEFAULT_RANGE`。
-2. **文案两两不同**：那条"三档的规格文案两两不同"改成按 `DIFFICULTY_TIER_ORDER` 遍历（它已经不假设只有三档），断言 `new Set(labels).size === DIFFICULTY_TIER_ORDER.length`。
+2. **文案一致**：那条"规格文案由难度档自己的名字产出"已经按 `DIFFICULTY_TIER_ORDER` 遍历（不假设档数），它断言两件事——每档文案两两不同（否则历史记录里两局无法区分），且**首页按钮的文案必须原样出现在规格文案里**（否则会出现"首页叫中音区、练习页写全音域"这种同名两写的毛病）。新档加进 `DIFFICULTY_TIER_ORDER` 后这三点自动被覆盖。
 3. **出题性质**：`describe('难度档到规格的映射')` 里那条"每一档 × 每种音数都能出题"已经按 `DIFFICULTY_TIER_ORDER` 遍历每种音数各 50 轮，它会自动覆盖新档；再补一条只针对新档的断言，把上界写死：
 
 ```ts

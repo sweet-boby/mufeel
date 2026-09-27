@@ -24,6 +24,13 @@ export type PitchSpanPattern = 'within-octave' | 'unrestricted';
 export const OCTAVE_SEMITONES = 12;
 
 export interface DrillSpec {
+  /**
+   * 这次练习的显示名，例如「中音区」「全音域」「八度内」。
+   *
+   * 由难度档带进来，而不是从音域与跨度规则反推：`standard` 与 `wide` 的跨度规则相同、
+   * 只有音域不同，任何"按规则推导名字"的写法都会让同一档在首页与练习页显示成两个名字。
+   */
+  readonly label: string;
   /** 每题弹几个音，也就是每题几个滑块、几个档位。 */
   readonly noteCount: number;
   /** 音域跨度模式。 */
@@ -67,8 +74,8 @@ export interface DifficultyTierDefinition {
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyTierDefinition> = {
   standard: {
-    label: '全音域',
-    hint: '音可以散布在整个音域里，跨度不限',
+    label: '中音区',
+    hint: '在 C3–C5 里散布，跨度不限',
     range: DEFAULT_RANGE,
     spanPattern: 'unrestricted',
   },
@@ -79,7 +86,7 @@ export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyTierDefinition> 
     spanPattern: 'within-octave',
   },
   wide: {
-    label: '宽音域',
+    label: '全音域',
     hint: '音域拉到 C1–A7，音的分布更接近真实钢琴',
     range: WIDE_RANGE,
     spanPattern: 'unrestricted',
@@ -104,10 +111,11 @@ export const SPAN_PATTERN_LABELS: Record<PitchSpanPattern, string> = {
 export function createDrillSpecForTier(
   tier: DifficultyTier,
   noteCount: number,
-  overrides: Partial<Omit<DrillSpec, 'range' | 'spanPattern' | 'noteCount'>> = {},
+  overrides: Partial<Omit<DrillSpec, 'range' | 'spanPattern' | 'noteCount' | 'label'>> = {},
 ): DrillSpec {
   const definition = DIFFICULTY_TIERS[tier];
   return {
+    label: definition.label,
     noteCount,
     spanPattern: definition.spanPattern,
     range: definition.range,
@@ -118,9 +126,11 @@ export function createDrillSpecForTier(
 }
 
 export function createDrillSpec(
-  overrides: Partial<DrillSpec> & Pick<DrillSpec, 'noteCount' | 'spanPattern'>,
+  overrides: Partial<DrillSpec> & Pick<DrillSpec, 'noteCount' | 'spanPattern'> & { label?: string },
 ): DrillSpec {
+  const spanPattern = overrides.spanPattern;
   return {
+    label: SPAN_PATTERN_LABELS[spanPattern],
     range: DEFAULT_RANGE,
     exerciseCount: DEFAULT_EXERCISE_COUNT,
     replayLimit: DEFAULT_REPLAY_LIMIT,
@@ -134,16 +144,11 @@ export function describeRange(range: PitchRange): string {
 }
 
 /**
- * 人话描述一个规格，例如「3 个音 · 八度内」。
- *
- * 跨度规则不足以区分两档"音域不同、跨度都不限"的练习（中音区的全音域 vs C1–A7 的宽音域），
- * 所以不限制跨度的规格会带上实际音域；八度内自带明确约束，不必再报范围。
+ * 人话描述一个规格，例如「3 个音 · 全音域」。
+ * 名字取自规格自己的 `label`，也就是用户选的那一档。
  */
 export function describeDrillSpec(spec: DrillSpec): string {
-  const span = SPAN_PATTERN_LABELS[spec.spanPattern];
-  return spec.spanPattern === 'within-octave'
-    ? `${spec.noteCount} 个音 · ${span}`
-    : `${spec.noteCount} 个音 · ${span}（${describeRange(spec.range)}）`;
+  return `${spec.noteCount} 个音 · ${spec.label}`;
 }
 
 /** 整题跨度上限；unrestricted 时返回整个音域的宽度。 */

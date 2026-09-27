@@ -91,7 +91,7 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 1. 一道题有 n 个音，2 ≤ n ≤ 5（`MAX_NOTE_COUNT = 5`），互不相同且全部落在规格音域内；出题器对 `noteCount < 2` 抛错。
 2. 档位数 == 本题音数，取值 1…n；答案必然是 1…n 的一个排列，由 `positionsOf` 唯一确定。
 3. 一个档位最多被一个滑块占用：`assignRank` 处理冲突（互换，或让被抢者变为未作答），`assertNoDuplicateRanks` 复查，重复即抛错。
-4. 八度内 = 整题跨度（最高音 − 最低音）≤ `OCTAVE_SEMITONES` = 12 个半音；全音域 = 不限制跨度。
+4. 题目跨度受难度档约束：`八度内` = 整题跨度（最高音 − 最低音）≤ `OCTAVE_SEMITONES` = 12 个半音；`中音区`与`全音域`不限制跨度，只受各自音域约束。
 5. 播放顺序随机打乱，否则答案恒为 1…n，一眼可解。
 6. 判分只判方向：每个音的名次都对才整题算对（全对/全错），没有容差参数——档位是离散名次，不存在「差一点」的中间状态。
 7. 整局题库在 `start()` 时一次性生成并固化，一题之内重听听到的永远是同一组音。
@@ -106,7 +106,7 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 
 ### Extension points
 
-改难度只给 `DrillSpec` 加字段，改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
+加难度档改 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`（音域与跨度规则一起定义，界面按钮自动出现），`createDrillSpecForTier` 把档位与音数拼成规格，要一种新的跨度/音程约束才动 `PitchSpanPattern`；改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
 
 新增一整种能力（绝对音高识别、参考音）没有现成端口可用：档位序列表达不了绝对音级，那要改 `Answer` 与判分口径。
 
@@ -114,7 +114,7 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 
 ### 采样映射与配置
 
-Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / F# / A），28 个文件覆盖 C1–A7（音高 −36…45）。`assignSample(pitch)` 取最近的采样，返回用哪个采样、变调几个半音、`playbackRate = 2^(detuneSemitones/12)`；整个采样范围内变调不超过 2 个半音，练习音域 C3–C5 内不超过 1 个半音。[sample-map 的测试](tests/sample-map.test.ts)直接读 `apps/web/public/samples/piano/` 目录核对映射表与磁盘文件一致，两边无法各自漂移。[`domain/config.ts`](src/domain/config.ts) 集中其余可调参数：`DEFAULT_PLAYBACK` 为每音 1200 ms、音间留白 400 ms，默认音域 C3–C5（`DEFAULT_RANGE`），一局 10 题（`DEFAULT_EXERCISE_COUNT`），每题重听上限 3 次（`DEFAULT_REPLAY_LIMIT`）。
+Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / F# / A），28 个文件覆盖 C1–A7（音高 −36…45）。`assignSample(pitch)` 取最近的采样，返回用哪个采样、变调几个半音、`playbackRate = 2^(detuneSemitones/12)`；整个采样范围内变调不超过 2 个半音，练习用的两个音域——C3–C5（`DEFAULT_RANGE`）与 C1–A7（`WIDE_RANGE`，即 `全音域` 档，等于采样覆盖的完整范围）——内不超过 1 个半音，覆盖钢琴 88 键中的 82 个音高，范围外的 A0–B0 与 A#7–C8 由 `assignSample` 夹回边界。[sample-map 的测试](tests/sample-map.test.ts)直接读 `apps/web/public/samples/piano/` 目录核对映射表与磁盘文件一致，两边无法各自漂移。[`domain/config.ts`](src/domain/config.ts) 集中其余可调参数：`DEFAULT_PLAYBACK` 为每音 1200 ms、音间留白 400 ms，一局 10 题（`DEFAULT_EXERCISE_COUNT`），每题重听上限 3 次（`DEFAULT_REPLAY_LIMIT`）。
 
 </details>
 
@@ -144,6 +144,6 @@ Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / 
 <summary>Working context for maintainers — click to expand</summary>
 
 - 改出题规则只改 `domain/services/exercise-generator.ts`，改判分口径只改 `domain/services/judge.ts`；不要在 `application/` 或界面里复制第二份规则。验证用 `pnpm test`（vitest run）与 `pnpm typecheck`（tsc -p tsconfig.json）。
-- [`tests/`](tests/) 下 4 个文件、46 个测试；关键的性质测试对每种音数与跨度组合各跑 200 轮、每轮 10 题，穷举校验音数、互不相同、跨度、音域与「答案必为排列」，平台实现用桩替换（`FakeAudioPlayer` 与确定性 LCG 是模板）。
+- [`tests/`](tests/) 下 4 个文件、51 个测试；关键的性质测试对每种音数与跨度组合各跑 200 轮、每轮 10 题，穷举校验音数、互不相同、跨度、音域与「答案必为排列」，平台实现用桩替换（`FakeAudioPlayer` 与确定性 LCG 是模板）。
 
 </details>

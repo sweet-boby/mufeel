@@ -4,23 +4,27 @@
 
 代码块从包入口 `@yuegan/core` 导入，省略了工程装配（依赖注入、路由、样式），不是可以直接粘贴运行的文件；它们与 `pnpm typecheck` 用同一套严格配置编译过。
 
-改动分三类，判据是「会不会让某条不变量失效」：「局部参数」只改 `DrillSpec` 的字段或 `packages/core/src/domain/config.ts` 的数值；「新增实现」写一个新的 `Judge` / `AudioPlayer` / `DrillRecordRepository` 实现或新的界面，从既有依赖注入进去；「动领域模型」要改 `Answer`、判分口径与 view state 的作答表示，并重新确认答案唯一性由什么保证。五条不变量编号沿用 [packages/core/README.md](../packages/core/README.md)：① 音互不相同 → 答案唯一；② 档位数 == 音数，答案必为 1…n 的排列；③ 一个档位最多一个滑块占用；④ 题目在开局时一次性生成并固化，一题之内重听听到同一组音；⑤ 答题中界面不显示音高/音名，真实音高只在反馈阶段出现。
+改动分三类，判据是「会不会让某条不变量失效」：「局部参数」只改 `DrillSpec` 的字段、`DIFFICULTY_TIERS` 或 `packages/core/src/domain/config.ts` 的数值；「新增实现」写一个新的 `Judge` / `AudioPlayer` / `DrillRecordRepository` 实现或新的界面，从既有依赖注入进去；「动领域模型」要改 `Answer`、判分口径与 view state 的作答表示，并重新确认答案唯一性由什么保证。五条不变量编号沿用 [packages/core/README.md](../packages/core/README.md)：① 音互不相同 → 答案唯一；② 档位数 == 音数，答案必为 1…n 的排列；③ 一个档位最多一个滑块占用；④ 题目在开局时一次性生成并固化，一题之内重听听到同一组音；⑤ 答题中界面不显示音高/音名，真实音高只在反馈阶段出现。
 
 ## 加难度档或改出题分布
 
-音数、跨度、音域、题数、重听上限全是 `DrillSpec` 的字段，`createDrillSpec` 只填默认值，界面上的选项从 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` / `SPAN_PATTERN_LABELS` 生成，不写第二份数字。
+难度档（`DifficultyTier`）是给人挑的入口：`DIFFICULTY_TIERS` 的每一项把音域与跨度规则捆在一起定义，`DIFFICULTY_TIER_ORDER` 决定首页按钮的顺序，`createDrillSpecForTier(tier, noteCount)` 再把档位与音数拼成 `DrillSpec`。加一档 = 扩展 `DifficultyTier` 联合类型、往 `DIFFICULTY_TIERS` 加一项、把它排进 `DIFFICULTY_TIER_ORDER`；按钮、提示与规格文案都读这张表，`apps/web/` 一行不改。音数、题数、重听上限仍是 `DrillSpec` 的独立字段，音数选项从 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成。
 
-要新增一种跨度规则或音程约束（例如三度内、任意两音至少隔一个八度）或换出题分布（限定音阶、指定音程集合）才是改 core：`PitchSpanPattern` 加枚举值、给出这条规则的上界或下界，再让 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows`（合法起点）与 `sampleIndices`（取哪几个半音）按新规则工作；答案是升序名次，这类改动不碰 `Answer`。不变量 ①②③④ 不受影响，出题器换的只是取音方式；⑤ 无关。
+要一种新的跨度或音程约束（例如三度内、任意两音至少隔一个八度）才是改 core 的出题侧：`PitchSpanPattern` 加枚举值、给出这条规则的上界或下界（`maxSpanOf` 或同类纯函数），再让 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows`（合法起点）与 `sampleIndices`（取哪几个半音）按新规则工作。答案是升序名次，这类改动不碰 `Answer`。两条路都不碰作答表示与判分：不变量 ①②③④ 不受影响，⑤ 无关。
 
 ```ts
-import { createDrillSpec, describeDrillSpec, type DrillSpec } from '@yuegan/core'
+import {
+  createDrillSpecForTier, describeDrillSpec, DIFFICULTY_TIERS, DIFFICULTY_TIER_ORDER,
+  type DrillSpec,
+} from '@yuegan/core'
 
-/** 加一档「八度内、4 个音、练 5 题、重听 1 次」：只给字段。 */
-export const spec: DrillSpec = createDrillSpec({
-  noteCount: 4, spanPattern: 'within-octave', exerciseCount: 5, replayLimit: 1,
-})
+/** 首页的难度按钮按这个顺序渲染，文案与提示都取自档位定义。 */
+export const labels: readonly string[] = DIFFICULTY_TIER_ORDER.map((tier) => DIFFICULTY_TIERS[tier].label)
+// → ['中音区', '全音域', '八度内']
 
-export const label = describeDrillSpec(spec) // "4 个音 · 八度内"
+/** 难度档 + 音数 → 规格：音域与跨度规则来自档位定义，其余字段仍可覆盖。 */
+export const spec: DrillSpec = createDrillSpecForTier('wide', 4, { exerciseCount: 5, replayLimit: 1 })
+export const label = describeDrillSpec(spec) // "4 个音 · 全音域（C1–A7）"
 ```
 
 ## 换判分口径（部分得分、更严的方向判定）
@@ -158,7 +162,7 @@ export const sameAnswer: boolean = low.join(',') === high.join(',')
 
 | 想加的东西 | 挂在哪 | 不变量 |
 | --- | --- | --- |
-| 新难度档（音数、音域、题数、重听上限） | `createDrillSpec` 的字段（`packages/core/src/domain/entities/drill-spec.ts`），界面选项从 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` / `SPAN_PATTERN_LABELS` 生成 | 局部参数（①②③④ 不动） |
+| 新难度档（音域 + 跨度规则） | `DifficultyTier` 加字面量，再往 `DIFFICULTY_TIERS` / `DIFFICULTY_TIER_ORDER` 加一项（`packages/core/src/domain/entities/drill-spec.ts`），首页按钮自动出现 | 局部参数（①②③④ 不动） |
 | 新跨度规则、音程约束或出题分布（三度内、任意两音隔一个八度、限定音阶） | `PitchSpanPattern` 加枚举值并给出上界/下界（`maxSpanOf` 或同类纯函数），再改 `packages/core/src/domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices` | 局部参数（①②③④ 不动；出题的性质测试要跟着改断言） |
 | 部分得分 / 更严的方向判定 | 新 `Judge` 实现，注入 `DrillRunnerDependencies.judge` | 新增实现（不动；`Judgment.isCorrect` 的含义变了） |
 | 音程判断（作答仍是档位） | 同上一行，另写 `Judge` | 新增实现（不动） |
