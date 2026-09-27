@@ -18,11 +18,10 @@ const NOTE_COUNT_OPTIONS = Array.from(
   (_, index) => MIN_NOTE_COUNT + index,
 );
 
-const SPAN_OPTIONS: readonly { value: PitchSpanPattern; hint: string }[] = [
-  { value: 'unrestricted', hint: '音可以散布在整个音域里，跨度不限' },
-  { value: 'within-octave', hint: '所有音挤在同一个八度里，更难分辨' },
-];
+/** 难度的出现顺序。按钮文案取自 core 的 SPAN_PATTERN_LABELS，提示语见 SPAN_HINTS。 */
+const SPAN_OPTIONS: readonly PitchSpanPattern[] = ['unrestricted', 'within-octave'];
 
+/** 选中某项难度时显示在按钮下方的说明。Record 保证每个难度都有一条，漏写就是类型错误。 */
 const SPAN_HINTS: Record<PitchSpanPattern, string> = {
   unrestricted: '音可以散布在整个音域里，跨度不限',
   'within-octave': '所有音挤在同一个八度里，更难分辨',
@@ -74,16 +73,16 @@ export function HomeScreen({
         <div className="field">
           <span className="field-label">难度</span>
           <div className="segmented" role="radiogroup" aria-label="难度">
-            {SPAN_OPTIONS.map((option) => (
+            {SPAN_OPTIONS.map((pattern) => (
               <button
-                key={option.value}
+                key={pattern}
                 type="button"
                 role="radio"
-                aria-checked={choice.spanPattern === option.value}
-                className={choice.spanPattern === option.value ? 'seg is-active' : 'seg'}
-                onClick={() => onChange({ ...choice, spanPattern: option.value })}
+                aria-checked={choice.spanPattern === pattern}
+                className={choice.spanPattern === pattern ? 'seg is-active' : 'seg'}
+                onClick={() => onChange({ ...choice, spanPattern: pattern })}
               >
-                {SPAN_PATTERN_LABELS[option.value]}
+                {SPAN_PATTERN_LABELS[pattern]}
               </button>
             ))}
           </div>

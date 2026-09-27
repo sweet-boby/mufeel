@@ -10,6 +10,15 @@
 - 界面不许自己推算业务规则。哪个档位被占用、能不能提交、还能听几次、正确与否，全部来自 `application/view-model.ts` 产出的 view state。
 - 贫血模型：领域对象是纯数据类型（`interface`），没有方法；规则以纯函数形式住在 `domain/services` 与 `domain/entities`（理由见 [ADR 0001](docs/adr/0001-domain-core-separated-from-platform.md)）。新规则请加到这两处，不要写进 React 组件或播放器。
 
+## 包与依赖方向
+
+| 包 | 是什么 | 可以依赖 |
+| --- | --- | --- |
+| `packages/core`（`@yuegan/core`） | 平台无关的领域核心，唯一入口是 `src/index.ts` | 无运行时依赖；连 Node 内置模块都不许 import（`node:fs` 只出现在测试里，用于核对采样文件） |
+| `apps/web`（`@yuegan/web`） | 产品装配层：界面 + 平台适配器 | `@yuegan/core`、`react`、`react-dom` |
+
+依赖是单向的：`apps/web` → `@yuegan/core`，core 不知道 web 存在。从 web 里 import core 一律走包入口 `@yuegan/core`，不要深入 core 的源码文件——那条路径绕过公开导出，一旦内部改名就会静默失效。各自的契约见 [packages/core/README.md](packages/core/README.md) 与 apps/web/README.md。
+
 ## 出题与判分的规则住在哪
 
 - 出题规则只有一处：`packages/core/src/domain/services/exercise-generator.ts`。判分规则只有一处：`packages/core/src/domain/services/judge.ts`。改规则改这两个文件，不要在别处复制一份。

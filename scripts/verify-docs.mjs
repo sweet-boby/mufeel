@@ -53,6 +53,10 @@ function collectScriptNames() {
 const failures = [];
 
 function checkPath(doc, target) {
+  // 带省略号或通配符的写法是示意，不是可点击的具体路径。
+  if (target.includes('...') || target.includes('*')) {
+    return;
+  }
   if (!existsSync(join(ROOT, target))) {
     failures.push(`${doc}: 提到不存在的路径 ${target}`);
   }
@@ -87,6 +91,90 @@ const scripts = collectScriptNames();
 /** 文档里故意提到、但并非调用命令的写法（例如「不要用 `pnpm docs` 这个 script 名」）。 */
 const COMMAND_MENTION_ALLOWLIST = new Set(['docs']);
 
+/**
+ * 扫描源码里真正被 import 的模块名（只认 import/export ... from 与 require，不认注释里的提及）。
+ */
+function importedModules(text) {
+  const modules = [];
+  for (const match of text.matchAll(/(?:^|\n)\s*import\s+(?:type\s+)?[^'"\n]*?from\s+['"]([^'"]+)['"]/g)) {
+    modules.push(match[1]);
+  }
+  for (const match of text.matchAll(/(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g)) {
+    modules.push(match[1]);
+  }
+  for (const match of text.matchAll(/export\s+(?:type\s+)?[^'"\n]*?from\s+['"]([^'"]+)['"]/g)) {
+    modules.push(match[1]);
+  }
+  return modules;
+}
+
+function collectSourceFiles(dir) {
+  const files = [];
+  const walk = (current) => {
+    for (const entry of readdirSync(current)) {
+      const full = join(current, entry);
+      if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) {
+        continue;
+      }
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (/\.tsx?$/.test(entry)) {
+        files.push(full);
+      }
+    }
+  };
+  walk(join(ROOT, dir));
+  return files;
+}
+
+/**
+ * 平台边界：`packages/core/src` 不许 import 浏览器 API、框架、Node 内置模块，
+ * 也不许跨包 import。这是 AGENTS.md 里那条硬约束的可执行版本。
+ */
+function checkCorePlatformBoundary() {
+  const forbidden = [
+    { pattern: /^react(-dom)?(\/|$)/, what: 'React' },
+    { pattern: /^node:/, what: 'Node 内置模块' },
+    { pattern: /^(fs|path|url|os|child_process|crypto)$/, what: 'Node 内置模块' },
+    { pattern: /^@yuegan\//, what: '其他 workspace 包' },
+  ];
+  for (const file of collectSourceFiles('packages/core/src')) {
+    const rel = file.slice(ROOT.length + 1);
+    for (const moduleName of importedModules(readFileSync(file, 'utf8'))) {
+      if (moduleName.startsWith('.')) {
+        continue;
+      }
+      const hit = forbidden.find((entry) => entry.pattern.test(moduleName));
+      if (hit !== undefined) {
+        failures.push(`${rel} import 了 ${hit.what}「${moduleName}」，破坏了 packages/core 的平台无关性`);
+      } else {
+        failures.push(`${rel} import 了外部模块「${moduleName}」，packages/core 不允许有运行时依赖`);
+      }
+    }
+    // 兜底：源码里出现浏览器全局对象也视为越界（注释里的说明不算）。
+    const code = readFileSync(file, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    for (const global of ['document.', 'window.', 'localStorage', 'AudioContext']) {
+      if (code.includes(global)) {
+        failures.push(`${rel} 出现了浏览器 API「${global}」，破坏了 packages/core 的平台无关性`);
+      }
+    }
+  }
+}
+
+/** 依赖方向：web 只能从包入口 import core，不能深入 core 的源码路径。 */
+function checkPackageEntryImports() {
+  for (const file of collectSourceFiles('apps/web/src')) {
+    const rel = file.slice(ROOT.length + 1);
+    for (const moduleName of importedModules(readFileSync(file, 'utf8'))) {
+      if (moduleName.startsWith('@yuegan/core/')) {
+        failures.push(`${rel} 从「${moduleName}」深层导入 core，请改走包入口 @yuegan/core`);
+      }
+    }
+  }
+}
+
 for (const doc of docs) {
   const raw = readFileSync(join(ROOT, doc), 'utf8');
 
@@ -111,6 +199,9 @@ for (const doc of docs) {
   }
 }
 
+checkCorePlatformBoundary();
+checkPackageEntryImports();
+
 if (failures.length > 0) {
   console.error('文档校验失败：');
   for (const failure of failures) {
@@ -119,4 +210,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`文档校验通过：${docs.length} 份文档，路径/命令/链接均有效。`);
+console.log(`文档校验通过：${docs.length} 份文档，路径/命令/链接均有效；core 的平台边界与包入口依赖方向均成立。`);

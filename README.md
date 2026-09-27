@@ -57,6 +57,23 @@ AGENTS.md                    面向 agent 的工作约定
 
 实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 46 个用例，`apps/web` 没有测试文件；`pnpm typecheck` 两个包都通过；`pnpm build` 产出约 2.7 MB，其中约 2.0 MB 是钢琴采样（`du` 磁盘占用），JS 主包 245 KB（gzip 77 KB）、CSS 8.2 KB（gzip 2.5 KB）。
 
+## 文档地图
+
+每份文档只负责一类事实，改东西时先看对应那一份：
+
+| 想找什么 | 读哪里 |
+| --- | --- |
+| 怎么跑、命令、目录结构 | 本文件 |
+| 某个词在本项目里到底指什么（题目 / 档位 / 作答 / 跨度……） | [CONTEXT.md](CONTEXT.md) |
+| 为什么这样分层、为什么不用 Tone.js | [docs/adr/](docs/adr/0001-domain-core-separated-from-platform.md) |
+| 想加功能：有哪些扩展点、各自要不要动领域模型 | [docs/extension-cookbook.md](docs/extension-cookbook.md) |
+| 按步骤加一个难度档（含验证） | [docs/cookbook/adding-a-difficulty-tier.md](docs/cookbook/adding-a-difficulty-tier.md) |
+| 领域核心的契约、不变量与已知边界 | [packages/core/README.md](packages/core/README.md) |
+| 界面与平台适配器的组织方式 | [apps/web/README.md](apps/web/README.md) |
+| 面向 agent 的工作约定与验证要求 | [AGENTS.md](AGENTS.md) |
+
+`pnpm test:docs` 校验这些文档里的路径、`pnpm` 命令与相对链接是否仍然有效。
+
 ## 能力与边界
 
 每题弹 2～5 个音，音高在 C3–C5 内随机且互不相同，播放顺序打乱；每题给出与音数相同的滑块与档位，把每个滑块放到它该在的位置，数字越大 = 音越高，全部放对才算这题答对。

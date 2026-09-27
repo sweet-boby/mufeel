@@ -104,6 +104,14 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 
 `getState()` 与 `subscribe()` 给出同一个 `DrillViewState`：phase、spec、每个滑块的档位选项（是否已选、是否被占用）、能不能提交、判分明细、replaysUsed / replayLimit、isPlaying、本局统计与结算 summary，以及 `forge`——整局题库的真实音高与正确答案快照，答题中界面不显示音高，但出题结果必须可核查。
 
+### Extension points
+
+改难度只给 `DrillSpec` 加字段，改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
+
+新增一整种能力（绝对音高识别、参考音）没有现成端口可用：档位序列表达不了绝对音级，那要改 `Answer` 与判分口径。
+
+每类形态的代码示例、判据与「功能 → 机制」表见[扩展形态参考](../../docs/extension-cookbook.md)。
+
 ### 采样映射与配置
 
 Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / F# / A），28 个文件覆盖 C1–A7（音高 −36…45）。`assignSample(pitch)` 取最近的采样，返回用哪个采样、变调几个半音、`playbackRate = 2^(detuneSemitones/12)`；整个采样范围内变调不超过 2 个半音，练习音域 C3–C5 内不超过 1 个半音。[sample-map 的测试](tests/sample-map.test.ts)直接读 `apps/web/public/samples/piano/` 目录核对映射表与磁盘文件一致，两边无法各自漂移。[`domain/config.ts`](src/domain/config.ts) 集中其余可调参数：`DEFAULT_PLAYBACK` 为每音 1200 ms、音间留白 400 ms，默认音域 C3–C5（`DEFAULT_RANGE`），一局 10 题（`DEFAULT_EXERCISE_COUNT`），每题重听上限 3 次（`DEFAULT_REPLAY_LIMIT`）。
