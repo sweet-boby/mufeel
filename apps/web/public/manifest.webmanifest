@@ -1,0 +1,19 @@
+{
+  "name": "乐感练习 · 练耳训练",
+  "short_name": "乐感练习",
+  "description": "从两个音比高低，到把一串音排成正确的相对高低，再到音程、和弦、音阶、音级与旋律听写。",
+  "lang": "zh-Hans",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
