@@ -96,7 +96,7 @@ pnpm preview  # 预览已构建的产物
 
 ## Known Limitations and Deferred Work
 
-- **没有测试文件**——`apps/web/package.json` 的 test script 是 `vitest run --passWithNoTests`；播放器与仓储的行为靠 core 的桩替换测试与浏览器手测覆盖。
+- **没有测试文件**——`apps/web/package.json` 的 test script 是 `vitest run --passWithNoTests`；播放器与仓储这两个实现没有自己的测试，core 的 `tests/drill-runner.test.ts` 只覆盖用桩替换端口时的编排，web 侧实现靠浏览器里手测。
 - **改 core 后 Vite 的模块缓存可能不刷新**——HMR 有时不会重新加载 `packages/core`，浏览器里跑的还是旧逻辑（表现为「代码改了、界面没变」）；重启 `pnpm dev` 并删掉 `node_modules/.vite`。
 - **记录只在本机**——成绩存在 localStorage 的 `yuegan.drill-records.v1` 下，最多 200 局；换设备或清空浏览器数据不会带走。
 - **采样是打包死的**——28 个 mp3 随仓库发布，换音色要同时改采样目录与 core 里的采样映射表，两边有测试核对。

@@ -55,7 +55,7 @@ AGENTS.md                    面向 agent 的工作约定
 | `pnpm test` | `pnpm -r run test` | 两个包各跑 `vitest run`，`@yuegan/web` 带 `--passWithNoTests` |
 | `pnpm test:docs` | `node scripts/verify-docs.mjs` | 文档门禁：文档里的路径、`pnpm` 命令与相对链接必须有效 |
 
-实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 46 个用例，`apps/web` 没有测试文件；`pnpm typecheck` 两个包都通过；`pnpm build` 产出约 2.7 MB，其中约 2.0 MB 是钢琴采样（`du` 磁盘占用），JS 主包 245 KB（gzip 77 KB）、CSS 8.2 KB（gzip 2.5 KB）。
+实测：`pnpm test` 在 `packages/core` 的 4 个测试文件里通过 46 个用例，`apps/web` 没有测试文件；`pnpm typecheck` 两个包都通过；`pnpm build` 产出约 2.7 MB（`du` 磁盘占用），其中 28 个采样文件本身 1.8 MB，JS 主包 245 KB（gzip 76 KB）、CSS 8.2 KB（gzip 2.5 KB）。
 
 ## 文档地图
 
