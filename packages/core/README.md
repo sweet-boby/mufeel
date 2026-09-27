@@ -7,7 +7,11 @@ kind: "package-library"
 
 ## Summary
 
-`@yuegan/core` 做三件事：按练习规格出题（每题 2–5 个音、互不相同、落在音域内、播放顺序打乱、正确答案由音高唯一确定）、把档位作答判成对错、用 `DrillRunner` 编排一整局（加载音频 → 出题 → 播放 → 作答 → 判分 → 下一题 → 结算 → 存档）。它同时是界面唯一的业务真相来源：哪个档位被占用、能不能提交、还能重听几次、真实音高是什么，全部来自 `getState()` 返回的 view state。代价是接线：音频播放与练习记录要由平台实现 `AudioPlayer`、`DrillRecordRepository` 后注入（随机源默认是 `createMathRandomSource()`）；包内是纯 TypeScript，没有 DOM、Web Audio、React 或任何浏览器 API，同一份代码能跑在 Node、浏览器与以后的安卓端。
+`@yuegan/core` 做三件事：按练习规格出题（每题 2–5 个音、互不相同、落在音域内、播放顺序打乱、正确答案由音高唯一确定）、把档位作答判成对错、用 `DrillRunner` 编排一整局（加载音频 → 出题 → 播放 → 作答 → 判分 → 下一题 → 结算 → 存档）。
+
+出题、判分、规格与作答的规则是纯领域服务，平台可以只取这几样：Web 端现在就只装配了它们（排序题的出题与判分）加一个 `AudioPlayer` 实现——排序题的播放也走这个端口，只是不经 `DrillRunner` 编排。课程节奏——模块、关卡、每天练几题——由 Web 自己安排，core 里不出现「关卡」这类词。`DrillRunner` 与它 `getState()` 返回的 view state 是「一局固定题数」这件事的参考实现与编排：哪个档位被占用、能不能提交、还能重听几次、真实音高是什么，都由它算好。它继续由 core 自己的行为测试覆盖，也是别的平台（安卓端）复用时最省事的入口；走 `DrillRunner` 这条路要由平台实现 `AudioPlayer`、`DrillRecordRepository` 后注入（随机源默认是 `createMathRandomSource()`）——Web 端不这么装配，它的 `AudioPlayer` 用在会话层，`DrillRecordRepository` 则还没有实现。
+
+包内是纯 TypeScript，没有 DOM、Web Audio、React 或任何浏览器 API，同一份代码能跑在 Node、浏览器与以后的安卓端；Web 端与 core 的分工见 [ADR 0003](../../docs/adr/0003-earpath-curriculum-in-web.md)。
 
 ## Table of Contents
 
@@ -63,7 +67,44 @@ const judgment = createRankOrderJudge().judge(exercise, submitDraft(exercise, [.
 judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 ```
 
-出题器与判分器只依赖 `RandomSource` 这类端口，注入确定性实现就能复现任何一局，不需要 mock `Math.random`。
+出题器与判分器只依赖 `RandomSource` 这类端口，注入确定性实现就能复现任何一局，不需要 mock `Math.random`。Web 端的排序题走的就是这一节：`apps/web/src/questions/rank.ts` 用 `createDrillSpecForTier` 拼规格、用出题器出题、用 `createRankOrderJudge` 判分；播放另走 `AudioPlayer` 端口（适配器 `apps/web/src/infrastructure/audio/core-audio-player.ts`，时序用 core 的 `DEFAULT_PLAYBACK`），界面只负责渲染。
+
+### 只要内容：音程、和弦、音阶、音级、级数
+
+六个移植来的模块（音程 / 和弦 / 音阶与调式 / 音级 / 和弦进行 / 旋律）的音乐事实也在这个包里，
+因为它们平台无关、语言无关（ADR 0004）：
+
+```ts
+import {
+  CHORDS, DEGREES, INTERVALS, NUMERALS, SCALES, CADENCES,
+  chordSemitones, intervalSemitones, voiceNumeral, planMelody, allowedMelodyPitches,
+  createMathRandomSource,
+} from '@yuegan/core'
+
+intervalSemitones('P5')        // 7
+chordSemitones('maj7')         // [0, 4, 7, 11]
+SCALES['dorian'].semitones     // [0, 2, 3, 5, 7, 9, 10, 12]
+NUMERALS['V']                  // { root: 7, quality: 'maj' }——指向和弦 id，不另抄一份半音
+voiceNumeral(60, 'V')          // 贝斯 + 靠中央 C 的柱式和弦，四个 MIDI 号
+CADENCES.major                 // ['I', 'IV', 'V', 'I']：功能题先立调性
+
+const plan = planMelody(
+  { keyRoot: 60, degrees: ['do', 're', 'mi', 'fa', 'sol'], length: 4 },
+  createMathRandomSource(),
+)
+plan.pitches                   // 四个音，全部落在 do–sol 之内；plan.allowed 是键盘范围
+```
+
+三条约定：
+
+1. **表里只有 id 与半音结构**，外加语言无关的记号（`m2`、`maj7`、`Do`、`1`）。
+   面向用户的名字与参考曲目由平台侧提供（Web 在 `apps/web/src/i18n/domain-labels.ts` 与两份字典里）——
+   加一条内容要动两处，`apps/web/src/i18n/i18n.test.ts` 会比对两边的 id 集合。
+2. **级数指向和弦 id**（`quality: 'maj'`），不在级数表里再写一遍半音排列：两处会漂。
+3. **算法走 `RandomSource` 端口**：`planMelody` 与 `createExerciseGenerator` 一样，注入确定性随机源就能复现。
+
+这两条算法的性质由 `tests/theory-content.test.ts` 守着（表的结构、200 条旋律的音级集合、跳进关真的跳出过五度、
+变化音只在邻音上且结尾不漂、查表遇未知 id 一律抛错）。
 
 -----
 
@@ -106,7 +147,7 @@ judgment.isCorrect   // true：把音高按升序排回去永远是正确答案
 
 ### Extension points
 
-加难度档改 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`（音域、跨度规则与显示名一起定义，界面按钮自动出现），`createDrillSpecForTier` 把档位与音数拼成规格，要一种新的跨度/音程约束才动 `PitchSpanPattern`；改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者同样从 `DrillRunner` 的依赖注入；换界面只改 `apps/web/src/presentation/`，业务状态一律取自 `DrillViewState`。
+加难度档改 `DIFFICULTY_TIERS` 与 `DIFFICULTY_TIER_ORDER`（音域、跨度规则与 core 侧的显示名一起定义；平台显示什么名字由平台自己决定，Web 走 i18n 的 `tier.*`），`createDrillSpecForTier` 把档位与音数拼成规格，要一种新的跨度/音程约束才动 `PitchSpanPattern`；改出题分布改 `domain/services/exercise-generator.ts` 的 `enumerateWindows` 与 `sampleIndices`；换判分口径写一个 `Judge` 实现，走 `DrillRunner` 的话从 `DrillRunnerDependencies.judge` 注入；换音色或播放方式实现 `AudioPlayer`，换记录存储实现 `DrillRecordRepository`，两者都可以从 `DrillRunner` 的依赖注入——Web 端不装配 `DrillRunner`，但排序题的播放就是 `AudioPlayer` 端口在它之外的一个装配点（`apps/web/src/infrastructure/audio/core-audio-player.ts`）；换界面改平台自己的界面层——Web 端在 `apps/web/src/presentation/`（会话循环 `useSession.ts`、页面 `screens/`），core 侧可直接渲染的状态由 `application/view-model.ts` 组装。
 
 新增一整种能力（绝对音高识别、参考音）没有现成端口可用：档位序列表达不了绝对音级，那要改 `Answer` 与判分口径。
 
@@ -124,7 +165,7 @@ Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / 
 
 - [CONTEXT.md](../../CONTEXT.md) 与 [ADR 0001：领域核心与平台实现分离](../../docs/adr/0001-domain-core-separated-from-platform.md)——术语的唯一定义处，以及贫血模型、端口注入与「core 里出现一个浏览器 API 就算越界」的判据。
 - [ADR 0002：用原生 Web Audio 而不是 Tone.js](../../docs/adr/0002-native-web-audio-over-tonejs.md)——采样映射为什么放在 core，播放器只做执行。
-- [apps/web 的 React 接线](../../apps/web/src/presentation/use-drill.ts) 与三个平台侧实现：[采样加载](../../apps/web/src/infrastructure/piano-samples.ts)、[播放器适配器](../../apps/web/src/infrastructure/web-audio-piano-player.ts)、[localStorage 仓储](../../apps/web/src/infrastructure/local-storage-drill-record-repository.ts)——分别是订阅 view state 的那一端、`assignSample` 的消费者、`AudioPlayer` 与 `DrillRecordRepository` 端口的实现。
+- Web 端的平台侧实现：[会话循环](../../apps/web/src/presentation/useSession.ts)、[采样引擎](../../apps/web/src/infrastructure/audio/piano-engine.ts) 与 [采样加载](../../apps/web/src/infrastructure/audio/piano-samples.ts)、[`AudioPlayer` 适配器](../../apps/web/src/infrastructure/audio/core-audio-player.ts)、[进度存档](../../apps/web/src/infrastructure/progress.ts)——注意 Web 现在不装配 `DrillRunner`：会话自己排课程节奏，排序题直接用 core 的出题与判分服务，但**播放走 core 的 `AudioPlayer` 端口**（适配器即 `core-audio-player.ts`，时序取自 core 的 `DEFAULT_PLAYBACK`），其余移植来的题型直接给采样引擎事件；`DrillRecordRepository` 在 Web 上还没有实现。原因与取舍见 [ADR 0003](../../docs/adr/0003-earpath-curriculum-in-web.md)。
 
 -----
 
@@ -134,9 +175,9 @@ Salamander 采样集是稀疏的：每 3 个半音只有一个采样（C / D# / 
 - **绝对音高识别与参考音刻意不提供**——判断听到的音具体是哪个音，需要音级刻度与练习前给出的锚点音，属于另一种能力；档位本身就不是绝对音高。
 - **音程判断未实现**——`intervalBetween` 目前只用于反馈文案。判分器的扩展点已经留好：作答结构是档位序列，再加一种判分口径不需要改数据结构。
 - **重听只能重放整题**——`play()` 重新播放本题全部音，没有「只重放某一个音」的能力，因此用户必须记住整串音。
-- **记录只存本地**——没有服务端、没有账号；`DrillRecord` 由平台实现的 `DrillRecordRepository` 保存，换设备不会带走成绩。
+- **记录只存本地**——没有服务端、没有账号；`DrillRecord` 由平台实现的 `DrillRecordRepository` 保存，换设备不会带走成绩。Web 端当前不装配这个端口，进度存在浏览器 localStorage 里（`apps/web/src/infrastructure/progress.ts`，键 `yuegan.progress.v1`），同样换设备不带走。
 - **`DrillRunner.setSpec` 在一局进行中抛错**——`listening` / `answering` / `revealed` 三个阶段调用它会抛「一局练习进行中，不能更换规格」，换规格前必须先 `reset()`。
-- **每道题最多 5 个音**——`MAX_NOTE_COUNT = 5`；一个滑块占一个档位，更多音在现有的滑块界面上无法表达。
+- **每道题最多 5 个音**——`MAX_NOTE_COUNT = 5`；音数再多，「一列一个音、一列里 n 个档位」的作答形式会迅速超出人能同时记住的范围。
 
 ### Dev Note
 

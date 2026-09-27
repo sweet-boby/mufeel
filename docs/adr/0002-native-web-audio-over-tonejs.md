@@ -30,7 +30,9 @@ Tone.js 的 `Sampler` 会把「哪个音用哪个采样、变调多少」交给�
 
 - 少一个运行时依赖；播放路径完全可读、可调、可测。
 - 代价是要自己管 AudioBufferSourceNode 的生命周期（停止、淡出、兜底收尾），
-  这部分已经收敛在一个文件里（`apps/web/src/infrastructure/web-audio-piano-player.ts`）。
+  这部分已经收敛在一个文件里（`apps/web/src/infrastructure/audio/piano-engine.ts`；
+  0003 之后这个引擎同时服务全部题型，core 的 `AudioPlayer` 端口适配器在
+  `apps/web/src/infrastructure/audio/core-audio-player.ts`）。
 - 安卓端换播放器时，只需实现同一个 `AudioPlayer` 端口；采样映射与音色无关的那部分逻辑可以直接复用。
 
 ## 考虑过的替代方案
