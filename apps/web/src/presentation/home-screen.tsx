@@ -4,6 +4,7 @@
  */
 
 import {
+  DEFAULT_EXERCISE_COUNT,
   MAX_NOTE_COUNT,
   MIN_NOTE_COUNT,
   SPAN_PATTERN_LABELS,
@@ -94,7 +95,7 @@ export function HomeScreen({
           <strong>
             {choice.noteCount} 个音 · {SPAN_PATTERN_LABELS[choice.spanPattern]}
           </strong>
-          ，共 10 题
+          ，共 {DEFAULT_EXERCISE_COUNT} 题
         </div>
 
         <button type="button" className="primary" onClick={onStart}>

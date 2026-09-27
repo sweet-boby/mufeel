@@ -12,7 +12,8 @@
     "build": "pnpm --filter @yuegan/web run build",
     "preview": "pnpm --filter @yuegan/web run preview",
     "typecheck": "pnpm -r run typecheck",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test",
+    "test:docs": "node scripts/verify-docs.mjs"
   },
   "devDependencies": {
     "typescript": "7.0.2"

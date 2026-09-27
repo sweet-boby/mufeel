@@ -20,7 +20,7 @@ export const DEFAULT_PLAYBACK: PlaybackConfig = {
 export interface AudioConfig {
   /**
    * 采样覆盖的音域。Salamander 采样只提供每 3 个半音一个采样（C、D#、F#、A），
-   * 共 27 个文件，覆盖 C1–A7；中间的音靠 ±2 个半音以内的变速变调补齐。
+   * 共 28 个文件，覆盖 C1–A7；中间的音靠 ±2 个半音以内的变速变调补齐。
    * 文件全部打包在 apps/web/public/samples/piano 下，不走外网。
    */
   readonly sampleRange: { readonly min: number; readonly max: number };
