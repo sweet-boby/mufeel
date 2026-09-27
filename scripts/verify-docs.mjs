@@ -6,9 +6,14 @@
  *   2. 文档里的 `pnpm <script>` 必须是真实存在的 script（写了不存在的命令，立刻红）。
  *   3. 文档里的相对 Markdown 链接必须指向存在的文件。
  *
+ * 例外：被 gitignore 的路径（`apps/web/dist/`、`node_modules/`、`.pnpm-store/` 这类构建产物与依赖目录）
+ * 在干净检出上本来就不存在，文档里提到它们是合理的（例如「不要提交 …」），所以跳过不查——
+ * 否则新克隆的人第一次跑 `pnpm test:docs` 就会红。
+ *
  * 用法：node scripts/verify-docs.mjs
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,14 +57,28 @@ function collectScriptNames() {
 
 const failures = [];
 
+/** 该路径是否被 gitignore（构建产物、依赖目录）。git 不可用时按「没被忽略」处理。 */
+function isIgnored(target) {
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', target], { cwd: ROOT, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function checkPath(doc, target) {
   // 带省略号或通配符的写法是示意，不是可点击的具体路径。
   if (target.includes('...') || target.includes('*')) {
     return;
   }
-  if (!existsSync(join(ROOT, target))) {
-    failures.push(`${doc}: 提到不存在的路径 ${target}`);
+  if (existsSync(join(ROOT, target))) {
+    return;
   }
+  if (isIgnored(target)) {
+    return;
+  }
+  failures.push(`${doc}: 提到不存在的路径 ${target}`);
 }
 
 function checkScript(doc, name, known) {
