@@ -14,6 +14,12 @@
   --wrong-soft: #f7e3e1;
   --shadow: 0 1px 2px rgba(42, 38, 33, 0.06), 0 12px 28px -18px rgba(42, 38, 33, 0.35);
   --radius: 14px;
+  /* 答题滑块（竖向）：轨道长度、滑块头直径、刻度行高。三者一起决定刻度与滑块头的对齐 */
+  --slider-h: clamp(184px, 34vh, 262px);
+  /* 判完分后的参照态：轨道收短，好让结算与「下一题」留在同一屏 */
+  --slider-h-compact: clamp(132px, 21vh, 186px);
+  --thumb: 30px;
+  --tick-line: 16px;
 }
 
 * {
@@ -289,59 +295,88 @@ body {
   line-height: 1.6;
 }
 
-.note-row {
-  padding: 14px 14px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #fffefa;
-  margin-bottom: 14px;
+.slider-card {
+  padding: 16px 14px 18px;
 }
 
-.note-row.is-right {
+/* 一个音一列，列从左到右就是播放顺序。列内自上而下是
+   「第 n 个音 / 竖向滑块＋档位刻度 / 当前档位 / 反馈」。
+   列宽有上限：2 个音时不会把两根轨道甩到卡片两头，几列都能凑在一起比高低。 */
+.slider-row {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+}
+
+.note-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 138px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffefa;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.note-col.is-right {
   border-color: #b9d9c9;
   background: var(--right-soft);
 }
 
-.note-row.is-wrong {
+.note-col.is-wrong {
   border-color: #e6c0bc;
   background: var(--wrong-soft);
 }
 
-.note-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 6px;
-}
-
+/* 不锁死单行：窄屏上 5 列时「第 1 个音」折成两行，好过撑破列宽 */
 .note-label {
-  font-size: 13px;
+  font-size: 12.5px;
+  line-height: 1.3;
   color: var(--ink-soft);
+  text-align: center;
 }
 
+/* 当前档位。已选是实心胶囊，未选是虚线占位——扫一眼就知道还剩哪几列没放 */
 .note-value {
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #6b4708;
+  background: var(--accent-soft);
+  border: 1px solid #e2cb97;
 }
 
 .note-value.is-empty {
   font-weight: 400;
   color: #b3a894;
+  background: transparent;
+  border: 1px dashed #ded4c2;
 }
 
-/* 滑块停在这一档但还没确认：用浅色底提示「你停在这里」，而不是「你选了这个」 */
-.tick.is-proposed {
-  color: #8a6a20;
-  background: var(--accent-soft);
-  border-radius: 4px;
-}
-
+/* 滑块本体：竖向。writing-mode 让原生 range 竖过来——不用 transform: rotate，
+   旋转出来的控件指针命中与键盘焦点都得跟着转，竖向模式是浏览器自己算的。
+   direction: rtl 把取值方向翻成「下小上大」：往上拖 = 档位数字变大 = 音更高，
+   与听感方向一致。 */
 .slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 100%;
-  height: 30px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: var(--thumb);
+  height: 100%;
   margin: 0;
   background: transparent;
   cursor: grab;
@@ -351,19 +386,22 @@ body {
   cursor: grabbing;
 }
 
+/* 竖向时「长度」是高度、「粗细」是宽度；越靠上越暖，暗示越高 */
 .slider::-webkit-slider-runnable-track {
-  height: 10px;
+  width: 10px;
+  height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #efe6d6, #e0d3bb);
+  background: linear-gradient(180deg, #e5d2ab, #f2ebdd);
   border: 1px solid #ddd0b8;
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 30px;
-  height: 30px;
-  margin-top: -11px;
+  width: var(--thumb);
+  height: var(--thumb);
+  /* 竖向滑块头用横向负 margin 压回轨道中心（横向滑块用的是 margin-top） */
+  margin-left: calc((var(--thumb) - 10px) / -2);
   border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #fff, #f0e2c6);
   border: 1px solid #c9a55f;
@@ -371,15 +409,16 @@ body {
 }
 
 .slider::-moz-range-track {
-  height: 10px;
+  width: 10px;
+  height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #efe6d6, #e0d3bb);
+  background: linear-gradient(180deg, #e5d2ab, #f2ebdd);
   border: 1px solid #ddd0b8;
 }
 
 .slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
+  width: calc(var(--thumb) - 2px);
+  height: calc(var(--thumb) - 2px);
   border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #fff, #f0e2c6);
   border: 1px solid #c9a55f;
@@ -397,18 +436,32 @@ body {
   border-radius: 8px;
 }
 
+/* 滑块＋刻度并排，刻度在右 */
+.slider-stack {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: var(--slider-h);
+}
+
+/* 档位刻度：1 在最下、n 在最上（column-reverse），与滑块的上下方向一致。
+   上下各留「滑块头半径 − 半个刻度行高」，让首尾刻度正对滑块头停在两端时的圆心。 */
 .ticks {
   display: flex;
+  flex-direction: column-reverse;
   justify-content: space-between;
-  padding: 2px 2px 0;
+  padding: calc(var(--thumb) / 2 - var(--tick-line) / 2) 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .tick {
-  min-width: 22px;
+  width: 18px;
+  height: var(--tick-line);
+  line-height: var(--tick-line);
+  border-radius: 4px;
   text-align: center;
-  font-size: 12px;
+  font-size: 11.5px;
   color: #a89b86;
-  font-variant-numeric: tabular-nums;
 }
 
 .tick.is-selected {
@@ -421,15 +474,40 @@ body {
   text-decoration: line-through;
 }
 
+/* 滑块停在这一档但还没确认：用浅色底提示「你停在这里」，而不是「你选了这个」 */
+.tick.is-proposed {
+  color: #8a6a20;
+  background: var(--accent-soft);
+  border-radius: 4px;
+}
+
+/* 每列的反馈：列窄，竖着排、每行都短，扫一眼就能对上号 */
 .note-feedback {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+  flex-direction: column;
   align-items: center;
-  margin-top: 10px;
-  padding-top: 10px;
+  gap: 3px;
+  width: 100%;
+  padding-top: 9px;
   border-top: 1px dashed rgba(0, 0, 0, 0.08);
-  font-size: 12.5px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.note-feedback .tag {
+  font-size: 11.5px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.note-truth {
+  color: var(--ink-soft);
+}
+
+.note-truth strong {
+  color: var(--ink);
+  font-size: 1.12em;
 }
 
 .tag {
@@ -449,12 +527,29 @@ body {
   background: #f2cfcb;
 }
 
+/* 滑块区里提交按钮与结算块与滑块行之间留一口气 */
+.slider-card .submit,
+.slider-card .verdict {
+  margin-top: 16px;
+}
+
+/* 判完分滑块就只是参照物了：把轨道收短，让「答对了/答错了」和「下一题」
+   落在同一屏里，不用为了点下一题去滚动。 */
+.slider-card.is-revealed .slider-stack {
+  height: var(--slider-h-compact);
+}
+
 .verdict {
   display: flex;
   flex-direction: column;
   gap: 10px;
   align-items: center;
   padding-top: 6px;
+}
+
+/* 结算文字用默认 p 边距会把「下一题」顶出屏幕 */
+.verdict p {
+  margin: 0;
 }
 
 .verdict-text {
@@ -621,6 +716,11 @@ body {
   color: var(--ink-soft);
 }
 
+/* 「第 3 位」这类短词不许折成「第 3」+「位」 */
+.nowrap {
+  white-space: nowrap;
+}
+
 /* ---------- 提示条 ---------- */
 
 .toast {
@@ -646,6 +746,49 @@ body {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+/* 窄屏：最多 5 列也要放得下，滑块区的尺寸整套一起收 */
+@media (max-width: 460px) {
+  :root {
+    --slider-h: clamp(150px, 26vh, 210px);
+    --slider-h-compact: clamp(120px, 18vh, 168px);
+    --thumb: 26px;
+    --tick-line: 14px;
+  }
+
+  .slider-card {
+    padding: 12px 8px 14px;
+  }
+
+  .slider-row {
+    gap: 5px;
+  }
+
+  .note-col {
+    gap: 8px;
+    padding: 10px 4px 8px;
+  }
+
+  /* 列宽只剩 60 多像素：整套字号一起收一档 */
+  .note-label,
+  .note-value {
+    font-size: 10.5px;
+  }
+
+  .tick,
+  .note-feedback,
+  .note-feedback .tag {
+    font-size: 10.5px;
+  }
+
+  .note-value {
+    padding: 2px 6px;
+  }
+
+  .tick {
+    width: 15px;
   }
 }
 

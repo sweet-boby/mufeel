@@ -7,7 +7,7 @@ kind: "package-library"
 
 ## Summary
 
-`@yuegan/web` 是产品装配层，不是库：没有别的包 import 它，它的产物是一个网页。它用 React 19.3.0 渲染三个页面（首页选规格、练习页听音与拖滑块、结果页看正确率与逐题明细），用原生 Web Audio 播放钢琴采样，用 localStorage 存练习记录。领域规则一条都不在这里：出题、判分、状态流转全在 `@yuegan/core`，界面只渲染 view state，并把用户操作翻译成 runner 命令。依赖方向是单向的——`apps/web` → `@yuegan/core`，core 不知道 web 存在。core 的三个端口里 web 实现了两个（`AudioPlayer`、`DrillRecordRepository`），随机源用 core 的默认实现。这个包没有测试文件（`vitest run --passWithNoTests`），行为测试全部在 core，界面改动靠浏览器里真的点一遍来验证。
+`@yuegan/web` 是产品装配层，不是库：没有别的包 import 它，它的产物是一个网页。它用 React 19.3.0 渲染三个页面（首页选规格、练习页听音与上下拖滑块、结果页看正确率与逐题明细），用原生 Web Audio 播放钢琴采样，用 localStorage 存练习记录。领域规则一条都不在这里：出题、判分、状态流转全在 `@yuegan/core`，界面只渲染 view state，并把用户操作翻译成 runner 命令。依赖方向是单向的——`apps/web` → `@yuegan/core`，core 不知道 web 存在。core 的三个端口里 web 实现了两个（`AudioPlayer`、`DrillRecordRepository`），随机源用 core 的默认实现。这个包没有测试文件（`vitest run --passWithNoTests`），行为测试全部在 core，界面改动靠浏览器里真的点一遍来验证。
 
 ## Table of Contents
 
@@ -30,7 +30,7 @@ pnpm build    # 产出 apps/web/dist
 pnpm preview  # 预览已构建的产物
 ```
 
-`pnpm build` 的产物实测约 2.7 MB（`du` 磁盘占用）：JS 主包 245 KB（gzip 后 76 KB）、CSS 8.2 KB（gzip 后 2.5 KB），28 个采样本身 1.8 MB。
+`pnpm build` 的产物实测约 2.7 MB（`du` 磁盘占用）：JS 主包 246 KB（gzip 后 78 KB）、CSS 9.8 KB（gzip 后 2.9 KB），28 个采样本身 1.8 MB。
 
 要改的东西大多落在这几处：
 
@@ -56,7 +56,7 @@ pnpm preview  # 预览已构建的产物
 | [`src/main.tsx`](src/main.tsx) | 挂载 `App`；找不到 `#root` 就抛错，而不是静默白屏 |
 | [`src/presentation/app.tsx`](src/presentation/app.tsx) | 页面切换（首页 / 练习页 / 结果页）与会话生命周期；`phase === 'finished'` 且有 summary 时显示结果页 |
 | [`src/presentation/home-screen.tsx`](src/presentation/home-screen.tsx) | 选音数与难度。音数选项由 core 的 `MIN_NOTE_COUNT` / `MAX_NOTE_COUNT` 生成，难度按钮与提示全部取自 core 的难度档表（`DIFFICULTY_TIER_ORDER` / `DIFFICULTY_TIERS`） |
-| [`src/presentation/drill-screen.tsx`](src/presentation/drill-screen.tsx) | 播放/重听、滑块、提交、反馈；每个滑块的档位选项、是否被占用、能否提交都来自 view state |
+| [`src/presentation/drill-screen.tsx`](src/presentation/drill-screen.tsx) | 播放/重听、竖向并排的滑块、提交、反馈；每个滑块的档位选项、是否被占用、能否提交都来自 view state |
 | [`src/presentation/result-screen.tsx`](src/presentation/result-screen.tsx) | 正确率与逐题明细 |
 | [`src/presentation/use-drill.ts`](src/presentation/use-drill.ts) | React 与 `DrillRunner` 之间唯一的接缝（见下） |
 | [`src/infrastructure/web-audio-piano-player.ts`](src/infrastructure/web-audio-piano-player.ts) | `AudioPlayer` 的 Web Audio 实现 |
@@ -83,6 +83,10 @@ pnpm preview  # 预览已构建的产物
 ### 界面不推算业务规则
 
 能不能提交、哪个档位已被别的滑块占用、还能重听几次、这一题对不对、真实音高是什么，全部来自 `buildDrillViewState` 产出的 view state；答题过程中界面不显示音高与音名，真实音高只在反馈阶段出现（见 [ADR 0001](../../docs/adr/0001-domain-core-separated-from-platform.md) 与 [packages/core/README.md](../../packages/core/README.md)）。
+
+### 滑块为什么是竖向并排的
+
+一个音一列，列从左到右就是播放顺序，列内往上拖 = 档位数字变大 = 音更高：「越高越靠上」与听感方向一致，几根轨道凑在一起也比横排时好比高低，5 个音还比原来矮一半。滑块仍是原生 `input[type=range]`，用 CSS 的 `writing-mode: vertical-lr` + `direction: rtl` 竖过来（不用 `transform: rotate`：旋转出来的控件，指针命中区域与键盘焦点都得跟着转，竖向模式由浏览器自己算）。刻度列用 `column-reverse` 把 n 放在最上，上下各留「滑块头半径 − 半个刻度行高」，让首尾刻度正对滑块头停在两端时的圆心。判完分后轨道收短（`.slider-card.is-revealed`），好让「答对了/答错了」与「下一题」留在同一屏，不用为了继续而滚动。拖动、点击轨道与方向键都走同一对命令（`proposeRank` + `selectRank`），上/右为 +1、下/左为 −1。
 
 </details>
 
