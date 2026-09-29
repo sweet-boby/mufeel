@@ -119,6 +119,39 @@ function checkLink(doc, target) {
   }
 }
 
+/** 只在这类文档里裸写、不打算做成链接的 URL（本机地址、示例占位）。 */
+const BARE_URL_ALLOWLIST = new Set(['localhost', '127.0.0.1', 'example.com']);
+
+/**
+ * 正文里的裸 URL：GitHub 只对规规矩矩的裸 URL 自动加链接，
+ * 写成 `**https://…**` 就会渲染成一段点不动的死文本——README 的「线上地址」曾经就这么砸过。
+ * 这条规则不让同一个坑再踩第二次。
+ *
+ * 先剥掉围栏代码块与行内代码（代码里的 URL 本来就不该是链接），
+ * 再把已经是 Markdown 链接的整段抹白——目标与链接文字都要抹，
+ * 因为 `[https://x](https://x)` 这种「用 URL 当链接文字」的写法是合法的、也点得动。
+ */
+function checkBareUrls(doc, raw) {
+  const stripped = raw.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
+  const masked = stripped.replace(/\[[^\]]*\]\(\s*<?https?:\/\/[^\s)>]*>?\s*\)/g, (all) => ' '.repeat(all.length));
+  // 结尾不收 * _ ~ 这些强调符，否则 `**https://x**` 会把 `**` 吸进 URL 里、给出误导的建议。
+  for (const match of masked.matchAll(/https?:\/\/[^\s)>\]，。；：、"'_*~]+/g)) {
+    let host;
+    try {
+      host = new URL(match[0]).hostname;
+    } catch {
+      continue;
+    }
+    if (BARE_URL_ALLOWLIST.has(host)) {
+      continue;
+    }
+    failures.push(
+      `${doc}: 正文里的裸链接 ${match[0]} 在 GitHub 上不可点击，请写成 [文字](${match[0]})；` +
+        `如果它只是示例而非链接，就用反引号包起来`,
+    );
+  }
+}
+
 const docs = collectDocs();
 const scripts = collectScriptNames();
 
@@ -231,6 +264,9 @@ for (const doc of docs) {
   for (const match of raw.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
     checkLink(doc, match[1]);
   }
+
+  // 4. 正文里的裸 URL（在 GitHub 上点不动的那种写法）
+  checkBareUrls(doc, raw);
 }
 
 checkCorePlatformBoundary();

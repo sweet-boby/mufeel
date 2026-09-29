@@ -73,7 +73,7 @@ AGENTS.md                    面向 agent 的工作约定
 
 ## 发布
 
-线上地址：**https://sweet-boby.github.io/mufeel/**（GitHub Pages，公开仓库免费）。
+线上地址：**[https://sweet-boby.github.io/mufeel/](https://sweet-boby.github.io/mufeel/)**（GitHub Pages，公开仓库免费）。
 
 `main` 上每推一次，[.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) 就自动跑
 `pnpm typecheck` → `pnpm test` → `pnpm test:docs` → `pnpm build`，四项全绿才把 `apps/web/dist` 发上去
