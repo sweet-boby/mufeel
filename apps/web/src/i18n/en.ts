@@ -60,7 +60,7 @@ export const en: Dict = {
   'module.pitch.option.same': 'Same',
   'module.pitch.rank.prompt': 'Put the notes in order, from lowest to highest',
   'module.pitch.rank.howTo':
-    'Several notes play one after another. Each column is one note, in playing order — drop it on the place it belongs. Higher number = higher note.',
+    'Several notes play one after another. Each column is one note, in playing order — drop it on the place it belongs. Higher number = higher note. You can change an answer at any time: tap another number, or tap a number another note holds to swap the two notes.',
   'module.pitch.rank.chip': '{n} notes',
   'module.pitch.level.bigLeaps.name': 'Big leaps',
   'module.pitch.level.bigLeaps.hint': 'Notes are far apart (a 5th or more).',

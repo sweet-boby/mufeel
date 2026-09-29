@@ -28,7 +28,10 @@ export function setRankAt(draft: AnswerDraft, noteIndex: number, rank: Rank | nu
 
 /**
  * 在 1…n 的档位里，找出「除第 noteIndex 个音之外」已经被占用的档位。
- * 界面用它来禁用重复选择，从交互上避免提交一个必错的答案。
+ *
+ * 界面可以用它做提示（哪几档现在在别的音手里）。但**不要因此禁用这些格子**：
+ * 作答的规则是「选过的还能再选」——点到已被占用的档位时，`assignRank` 会让两个音互换，
+ * 把格子封住会让填满之后的答案再也改不了。
  */
 export function ranksTakenByOthers(
   draft: AnswerDraft,

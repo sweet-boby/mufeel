@@ -105,7 +105,7 @@ button:focus-visible, a:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* 不可点的按钮不要给“可点”的光标；个别组件（如排序题的 is-taken）会再收紧成 not-allowed */
+/* 不可点的按钮不要给“可点”的光标 */
 button:disabled { cursor: default; }
 
 /* 减弱动效：关掉动画与过渡（源文件在 .celebrate 处另有一条同类规则，保留） */
@@ -841,7 +841,10 @@ noscript { display: block; padding: 2rem; text-align: center; color: var(--text-
 /* ── 排序题（rank）── */
 /* 本仓库新增。n 个音各占一列（列从左到右 = 播放顺序），
    列内是从 n 到 1 的竖向档位梯，数字大的在上面。整块沿用卡片体系：
-   --surface-2 的梯底、--border 的描边、--mc 的强调色、--good/--bad 的对错色。 */
+   --surface-2 的梯底、--border 的描边、--mc 的强调色、--good/--bad 的对错色。
+   答完之前每一格都能点：自己选过的可以改，别的音占着的点一下就是两个音互换位置
+   （互斥与互换都归 core 的 assignRank 管，界面不把「已被占用」画成不可点——
+   否则四个音都填好之后，谁也改不了）。 */
 .rank-board {
   --rank-cell: 42px;   /* 档位格边长上限：宽随列宽收缩，高由 aspect-ratio 跟着走 */
   --rank-gap: 5px;     /* 档位格之间的竖向间距 */
@@ -902,7 +905,7 @@ noscript { display: block; padding: 2rem; text-align: center; color: var(--text-
   font-variant-numeric: tabular-nums;
   transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.06s;
 }
-.rank-cell:not(:disabled):not(.is-taken):not(.is-selected):hover {
+.rank-cell:not(:disabled):not(.is-selected):hover {
   border-color: color-mix(in srgb, var(--mc, var(--accent)) 55%, var(--border));
   color: var(--text);
 }
@@ -920,12 +923,10 @@ noscript { display: block; padding: 2rem; text-align: center; color: var(--text-
   color: #0b0e14;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mc, var(--accent)) 30%, transparent);
 }
-/* 被别的音占了：弱化，且明确告诉用户“点不了” */
-.rank-cell.is-taken,
+/* 答完之后整块板子才封住（.is-correct / .is-wrong 随后把对错两格重新点亮） */
 .rank-cell:disabled {
   opacity: 0.34;
 }
-.rank-cell.is-taken { cursor: not-allowed; }
 /* 反馈阶段：排对 / 排错。放在最后，压过 is-selected 与上面的弱化 */
 .rank-cell.is-correct {
   background: color-mix(in srgb, var(--good) 22%, var(--surface));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignSample,
+  assignRank,
   createDrillSpec,
   createDrillSpecForTier,
   createExerciseGenerator,
@@ -280,10 +281,22 @@ describe('作答草稿', () => {
     expect(isDraftSubmittable(draft, 3)).toBe(true);
   });
 
-  it('能算出「这个档位已被别的滑块占用」，用于界面禁用', () => {
+  it('能算出「这个档位已被别的滑块占用」，供界面做提示', () => {
     const draft = setRankAt(setRankAt(createAnswerDraft(3), 0, 2), 1, 3);
     expect(ranksTakenByOthers(draft, 2)).toEqual(new Set([2, 3]));
     expect(ranksTakenByOthers(draft, 0)).toEqual(new Set([3]));
+  });
+
+  it('填满之后还能继续改：抢占已被占用的档位就是两个音互换', () => {
+    const filled = [4, 3, 2, 1];
+
+    // 第 1 个音改到第 2 位：占着第 2 位的第 3 个音接手第 4 位
+    const swapped = assignRank(filled, 0, 2);
+    expect(swapped).toEqual([2, 3, 4, 1]);
+    // 交换完仍然是 1…4 的一个排列，改完可以直接提交
+    expect(isDraftSubmittable(swapped, 4)).toBe(true);
+    // 再点回来是同一套语义：答案永远改得动
+    expect(assignRank(swapped, 0, 4)).toEqual([4, 3, 2, 1]);
   });
 
   it('提交未完成的作答会抛错', () => {

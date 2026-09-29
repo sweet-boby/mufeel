@@ -591,7 +591,6 @@ function RankAnswer({
       <div className="rank-board">
         {Array.from({ length: noteCount }, (_, noteIndex) => {
           const selected = session.state.rankDraft[noteIndex] ?? null;
-          const taken = session.takenRanks(noteIndex);
           const detail = judgment?.details[noteIndex];
           const classes = ['rank-col'];
           if (detail !== undefined) classes.push(detail.isCorrect ? 'is-correct' : 'is-wrong');
@@ -602,7 +601,6 @@ function RankAnswer({
                 {ranks.map((rank) => {
                   const cellClasses = ['rank-cell'];
                   if (selected === rank) cellClasses.push('is-selected');
-                  else if (taken.has(rank)) cellClasses.push('is-taken');
                   if (detail !== undefined) {
                     if (detail.correctRank === rank) cellClasses.push('is-correct');
                     else if (detail.answeredRank === rank) cellClasses.push('is-wrong');
@@ -612,7 +610,10 @@ function RankAnswer({
                       key={rank}
                       type="button"
                       className={cellClasses.join(' ')}
-                      disabled={session.state.answered || taken.has(rank)}
+                      // 答完之前每一格都能点：自己选过的可以改，别的音占着的点了就是两个音互换——
+                      // 「被占了怎么办」的规则在 core 的 assignRank 里，这里只把点击交回去。
+                      // 一旦按「别人占着就禁用」，填满之后整块板子就没有一格能改（选中格点了也是原地不动）。
+                      disabled={session.state.answered}
                       onClick={() => session.assign(noteIndex, rank)}
                     >
                       {rank}

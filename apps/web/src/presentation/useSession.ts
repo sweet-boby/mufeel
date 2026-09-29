@@ -5,8 +5,9 @@
  * 但节奏与规则一字未改：首次要点一下才开始播、答完给反馈与对比重放、
  * 关卡达到目标就弹庆祝、Daily 模式固定题数后给小结。
  *
- * 排序题的作答规则仍然全部来自 core：`assignRank` 处理「档位被占」的互换语义、
- * `isDraftSubmittable` 决定能不能提交、`judge` 出判分明细——这里只存草稿。
+ * 排序题的作答规则仍然全部来自 core：`assignRank` 处理「档位被占」的互换语义（也是「已经选过还能再点」
+ * 的实现——填满之后改答案就是一次互换）、`isDraftSubmittable` 决定能不能提交、`judge` 出判分明细——
+ * 这里只存草稿。
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -173,7 +174,6 @@ export interface Session {
   assign: (noteIndex: number, rank: number) => void;
   submitRank: () => void;
   canSubmitRank: boolean;
-  takenRanks: (noteIndex: number) => ReadonlySet<number>;
   next: () => void;
   keepPracticing: () => void;
   goalText: string | null;
@@ -397,6 +397,7 @@ export function useSession(cfg: SessionConfig): Session {
         return;
       }
       // 档位被占用时的互换/置空语义由 core 的 assignRank 决定，这里只转发。
+      // 界面不拦「已经被别人占着」的档位：那样填满之后就没法改答案了。
       dispatch({ type: 'rank-assign', noteIndex, rank });
     },
     [state.answered, state.everPlayed, state.q],
@@ -419,19 +420,6 @@ export function useSession(cfg: SessionConfig): Session {
     const { result, judgment } = current.grade(state.rankDraft as RankSequence);
     finish(result, judgment);
   }, [finish, state.answered, state.q, state.rankDraft]);
-
-  const takenRanks = useCallback(
-    (noteIndex: number): ReadonlySet<number> => {
-      const taken = new Set<number>();
-      state.rankDraft.forEach((value, index) => {
-        if (index !== noteIndex && value !== null) {
-          taken.add(value);
-        }
-      });
-      return taken;
-    },
-    [state.rankDraft],
-  );
 
   const next = useCallback(() => {
     clearAuto();
@@ -555,7 +543,6 @@ export function useSession(cfg: SessionConfig): Session {
     assign,
     submitRank,
     canSubmitRank,
-    takenRanks,
     next,
     keepPracticing,
     goalText,

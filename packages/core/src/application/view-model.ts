@@ -34,7 +34,7 @@ export interface SliderOptionView {
   readonly isSelected: boolean;
   /** 滑块停在这一档但还没确认（指针位置）。 */
   readonly isProposed: boolean;
-  /** 已被别的滑块占用，界面上应禁用。 */
+  /** 已被别的滑块占用。界面可以弱化显示，但不必禁用：确认这一档时会与占用者互换（`assignRank`）。 */
   readonly isTakenByOther: boolean;
 }
 

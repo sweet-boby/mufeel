@@ -54,7 +54,7 @@ export const zh: Dict = {
   'module.pitch.option.same': '一样高',
   'module.pitch.rank.prompt': '把这些音从低到高排好',
   'module.pitch.rank.howTo':
-    '系统会依次弹出几个音。一列就是一个音，列从左到右就是播放顺序；把每个音放到它该在的位置上：数字越大 = 音越高。',
+    '系统会依次弹出几个音。一列就是一个音，列从左到右就是播放顺序；把每个音放到它该在的位置上：数字越大 = 音越高。随时可以改：点别的数字就行，点到别的音占着的数字就是这两个音互换位置。',
   'module.pitch.rank.chip': '{n} 个音',
   'module.pitch.level.bigLeaps.name': '大跳',
   'module.pitch.level.bigLeaps.hint': '两个音离得很远（五度以上）。',
