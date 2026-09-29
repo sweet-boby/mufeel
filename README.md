@@ -71,6 +71,26 @@ AGENTS.md                    面向 agent 的工作约定
 `pnpm typecheck` 两个包都通过；`pnpm build` 产出 JS 主包约 339 KB（gzip 105 KB）、CSS 约 22 KB（gzip 5.3 KB），
 另有 28 个采样共 1.8 MB 与 manifest / Service Worker。
 
+## 发布
+
+线上地址：**https://sweet-boby.github.io/mufeel/**（GitHub Pages，公开仓库免费）。
+
+`main` 上每推一次，[.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) 就自动跑
+`pnpm typecheck` → `pnpm test` → `pnpm test:docs` → `pnpm build`，四项全绿才把 `apps/web/dist` 发上去
+（任何一项红就不发布，线上留上一版）。也可以在仓库的 Actions 页面手动触发一次重新发布。
+
+发布靠的是 GitHub 原生的 Pages 部署，**没有 `gh-pages` 分支**，构建产物不进 git 历史。代价是项目站挂在
+`/<仓库名>/` 这个子路径下，所以有两处必须跟着仓库走：
+
+- `apps/web/vite.config.ts` 的 `base: '/mufeel/'`。改了仓库名，这里也要改，否则页面白屏（资源 404）。
+- 仓库 Settings → Pages → Source 必须选 **GitHub Actions**。选成 "Deploy from a branch" 时，
+  workflow 里的 `actions/configure-pages` 会以 `HttpError: Not Found` 失败，构建产物也就发不出去。
+
+好在运行时用到 `import.meta.env.BASE_URL` 的地方（Service Worker 注册、钢琴采样路径）会自动跟随 `base`，
+不需要第二处改动；路由全部是 hash，静态托管不需要 404 回退。
+
+> 私有仓库要用 Pages，账号得是 GitHub Pro 及以上；本仓库是公开的，不受这条限制。
+
 ## 文档地图
 
 每份文档只负责一类事实，改东西时先看对应那一份：
