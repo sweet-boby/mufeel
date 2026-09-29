@@ -1,0 +1,80 @@
+# 把 apps/web 构建成静态站点并发布到 GitHub Pages。
+#
+# 发布地址由 vite.config.ts 里的 base（'/mufeel/'，即仓库名）决定：
+#   https://sweet-boby.github.io/mufeel/
+#
+# 仓库 Settings → Pages 的 Source 选 "GitHub Actions"，这个工作流负责其余一切；
+# 不需要 gh-pages 分支，产物也不进 git 历史。
+# 若是私有仓库，Pages 需要 GitHub Pro 及以上；公开仓库免费。
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # 允许在 Actions 页面手动触发一次重新发布。
+  workflow_dispatch:
+
+# GITHUB_TOKEN 的最小权限：读仓库、写 Pages、用 OIDC 向 Pages 证明身份。
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个发布；正在发布的那次不打断，后面排队的等它结束。
+# 取消进行中的部署可能让 Pages 停在半发布状态，所以 cancel-in-progress 保持 false。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 版本直接读 package.json 的 packageManager 字段（pnpm@11.7.0），
+      # 不在这里再写一遍，免得升级时两处打架。
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 与 AGENTS.md「验证」一节同口径：类型、行为测试（含 i18n 门禁）、文档门禁、构建。
+      # 任何一项红都不发布——线上宁可留上一版，也不留一份没验过的产物。
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 测试（core 行为测试 + web i18n 门禁）
+        run: pnpm test
+
+      - name: 文档门禁
+        run: pnpm test:docs
+
+      - name: 构建
+        run: pnpm build
+
+      # Pages 需要一个 .nojekyll，否则以下划线开头的目录不会被发布。
+      - name: 关闭 Jekyll 处理
+        run: touch apps/web/dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

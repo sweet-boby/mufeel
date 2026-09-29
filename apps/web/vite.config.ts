@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // GitHub Pages 把项目站放在 https://<用户>.github.io/<仓库名>/ 这个子路径下，
+  // 所以产物里的资源引用必须带这个前缀。运行时用到 BASE_URL 的地方
+  // （Service Worker 注册、钢琴采样路径）会自动跟着走，不需要第二处改动。
+  // 本地 `pnpm dev` / `pnpm preview` 也用这个前缀，保证开发时与线上路径一致。
+  base: '/mufeel/',
   plugins: [react()],
   server: { port: 5173, open: false },
   resolve: {
