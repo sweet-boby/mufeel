@@ -57,14 +57,29 @@ function collectScriptNames() {
 
 const failures = [];
 
-/** 该路径是否被 gitignore（构建产物、依赖目录）。git 不可用时按「没被忽略」处理。 */
+/**
+ * 该路径是否被 gitignore（构建产物、依赖目录）。git 不可用时按「没被忽略」处理。
+ *
+ * 两个都不能省的细节，否则「干净检出上放行」这条规则会静默失效：
+ *   * `--no-index`：没有它时 git 只检查工作区里真实存在的路径，
+ *     而这里要判的恰恰是「还没构建 / 还没装依赖时不存在」的那些路径；
+ *   * 补一次尾斜杠：`.gitignore` 里 `dist/` 这种模式只匹配目录，
+ *     带 `--no-index` 时 git 又不看文件系统，所以 `apps/web/dist` 这种不带尾斜杠的写法匹配不上，
+ *     而文档里写的正是这种写法。
+ */
 function isIgnored(target) {
-  try {
-    execFileSync('git', ['check-ignore', '-q', '--', target], { cwd: ROOT, stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+  const check = (candidate) => {
+    try {
+      execFileSync('git', ['check-ignore', '-q', '--no-index', '--', candidate], {
+        cwd: ROOT,
+        stdio: 'ignore',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  return check(target) || check(`${target.replace(/\/+$/, '')}/`);
 }
 
 function checkPath(doc, target) {
